@@ -4,7 +4,7 @@
  * 향상된 기능: 실시간 모니터링, 세션 관리, WebSocket 지원
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Grid,
@@ -56,14 +56,14 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { adminService } from '../../services/adminService';
 
-interface SystemStatus {
-  timestamp: string;
-  services: {
-    qdrant: { status: string; message: string; responseTime?: string };
-    dynamodb: { status: string; message: string; responseTime?: string };
-    llm: { status: string; message: string; responseTime?: string };
-  };
-}
+// interface SystemStatus {
+//   timestamp: string;
+//   services: {
+//     qdrant: { status: string; message: string; responseTime?: string };
+//     dynamodb: { status: string; message: string; responseTime?: string };
+//     llm: { status: string; message: string; responseTime?: string };
+//   };
+// }
 
 interface Metrics {
   period: string;
@@ -244,7 +244,7 @@ const AdminDashboard: React.FC = () => {
   
   // 기존 State 관리
   const [loading, setLoading] = useState(true);
-  const [systemStatus] = useState<SystemStatus | null>(null);
+  // const [systemStatus] = useState<SystemStatus | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [keywords, setKeywords] = useState<KeywordData | null>(null);
   const [chunks, setChunks] = useState<ChunkData | null>(null);
@@ -256,7 +256,7 @@ const AdminDashboard: React.FC = () => {
   // 새로운 state 변수들
   const [sessions, setSessions] = useState<Session[]>([]);
   const [realtimeMetrics, setRealtimeMetrics] = useState<RealtimeMetrics | null>(null);
-  const [connectedUsers] = useState(0);
+  // const [connectedUsers] = useState(0);
   
   // 다이얼로그 상태
   const [testDialogOpen, setTestDialogOpen] = useState(false);
@@ -284,7 +284,7 @@ const AdminDashboard: React.FC = () => {
   });
 
   // 데이터 로딩 함수들
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       const [
@@ -318,13 +318,13 @@ const AdminDashboard: React.FC = () => {
       setDocuments(documentsData.documents);
       setSessions(sessionsData.sessions);
       setRealtimeMetrics(realtimeData);
-    } catch (_) {
+    } catch (error) {
       console.error('Failed to load dashboard data:', error);
       showSnackbar('대시보드 데이터 로딩 실패', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
 
   // WebSocket 초기화 및 이벤트 리스너
   useEffect(() => {
@@ -378,7 +378,7 @@ const AdminDashboard: React.FC = () => {
     try {
       const result = await adminService.testRAG(testQuery);
       setTestResult(result);
-    } catch (_) {
+    } catch (error) {
       console.error('Test failed:', error);
       setTestResult({ error: 'Test execution failed' });
     } finally {
@@ -392,7 +392,7 @@ const AdminDashboard: React.FC = () => {
       try {
         await adminService.rebuildIndex();
         alert('인덱스 재구축이 시작되었습니다.');
-      } catch (_) {
+      } catch {
         alert('인덱스 재구축 실패');
       }
     }
@@ -410,7 +410,7 @@ const AdminDashboard: React.FC = () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       showSnackbar('로그 다운로드 완료', 'success');
-    } catch (_) {
+    } catch {
       showSnackbar('로그 다운로드 실패', 'error');
     }
   };
@@ -421,7 +421,7 @@ const AdminDashboard: React.FC = () => {
       const sessionDetails = await adminService.getSessionDetails(sessionId);
       setSelectedSession(sessionDetails);
       setSessionDetailOpen(true);
-    } catch (_) {
+    } catch {
       showSnackbar('세션 정보 로딩 실패', 'error');
     }
   };
@@ -432,7 +432,7 @@ const AdminDashboard: React.FC = () => {
         await adminService.deleteSession(sessionId);
         setSessions(prev => prev.filter(s => s.id !== sessionId));
         showSnackbar('세션이 삭제되었습니다', 'success');
-      } catch (_) {
+      } catch {
         showSnackbar('세션 삭제 실패', 'error');
       }
     }
@@ -449,7 +449,7 @@ const AdminDashboard: React.FC = () => {
         await adminService.deleteDocument(documentName);
         setDocuments(prev => prev.filter(d => d.name !== documentName));
         showSnackbar('문서가 삭제되었습니다', 'success');
-      } catch (_) {
+      } catch {
         showSnackbar('문서 삭제 실패', 'error');
       }
     }
@@ -459,7 +459,7 @@ const AdminDashboard: React.FC = () => {
     try {
       await adminService.reprocessDocument(documentName);
       showSnackbar('문서 재처리가 시작되었습니다', 'success');
-    } catch (_) {
+    } catch {
       showSnackbar('문서 재처리 실패', 'error');
     }
   };
