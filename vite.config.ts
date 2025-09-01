@@ -27,31 +27,18 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'esnext',
-    sourcemap: false, // 프로덕션에서 소스맵 비활성화로 번들 크기 줄임
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@mui/material', '@mui/icons-material'],
-          router: ['react-router-dom'],
-          utils: ['@emotion/react', '@emotion/styled'],
-        },
-        // 정적 자산 파일명 최적화 (Railway에서 캐싱 향상)
-        assetFileNames: 'assets/[name]-[hash][extname]',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-      },
-    },
-    // Railway 환경에서 메모리 최적화
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false,
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // 프로덕션에서 console.log 제거
+        drop_console: false, // console.log를 유지하여 디버깅
         drop_debugger: true,
       },
     },
+    // CSS를 별도 파일로 추출
+    cssCodeSplit: true,
   },
   optimizeDeps: {
     include: ['react', 'react-dom', '@mui/material', '@mui/icons-material'],
