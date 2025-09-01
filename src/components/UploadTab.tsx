@@ -68,7 +68,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
     chunkSize: 400,
     chunkOverlap: 50
   });
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 파일 유효성 검사
@@ -212,7 +212,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
       } else {
         throw new Error(responseData.message || responseData.error || '업로드 응답에 작업 ID가 없습니다.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 에러 객체 안전하게 처리
       let errorMessage = '업로드 중 오류가 발생했습니다.';
       
@@ -320,7 +320,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
             message: '파일 처리가 예상보다 오래 걸리고 있습니다. 백엔드에서는 계속 처리 중일 수 있습니다.',
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         // 네트워크 에러나 API 에러 처리
         clearInterval(checkInterval);
         

@@ -24,7 +24,6 @@ import {
 import {
   Send,
   Person,
-  SmartToy,
   ExpandMore,
   Source,
   Refresh,

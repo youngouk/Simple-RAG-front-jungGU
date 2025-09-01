@@ -34,7 +34,6 @@ import {
   Tabs,
   Tab,
   Snackbar,
-  Divider,
   Pagination,
   ThemeProvider,
   createTheme,
@@ -44,7 +43,6 @@ import {
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
-  Download as DownloadIcon,
   PlayArrow as TestIcon,
   Delete as DeleteIcon,
   CloudDownload as CloudDownloadIcon,
@@ -55,7 +53,7 @@ import {
   Analytics as AnalyticsIcon,
   Dashboard as OverviewIcon
 } from '@mui/icons-material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { adminService } from '../../services/adminService';
 
 interface SystemStatus {
@@ -121,7 +119,7 @@ interface Document {
   size: string;
   lastUpdate: string;
   status?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface Session {
@@ -170,7 +168,7 @@ function TabPanel(props: TabPanelProps) {
 
 const AdminDashboard: React.FC = () => {
   // 다크모드 상태
-  const [darkMode, setDarkMode] = useState(() => {
+  const [darkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
@@ -246,24 +244,24 @@ const AdminDashboard: React.FC = () => {
   
   // 기존 State 관리
   const [loading, setLoading] = useState(true);
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [systemStatus] = useState<SystemStatus | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [keywords, setKeywords] = useState<KeywordData | null>(null);
   const [chunks, setChunks] = useState<ChunkData | null>(null);
   const [countries, setCountries] = useState<CountryData | null>(null);
   const [recentChats, setRecentChats] = useState<ChatLog[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [period, setPeriod] = useState('7d');
+  const [period] = useState('7d');
   
   // 새로운 state 변수들
   const [sessions, setSessions] = useState<Session[]>([]);
   const [realtimeMetrics, setRealtimeMetrics] = useState<RealtimeMetrics | null>(null);
-  const [connectedUsers, setConnectedUsers] = useState(0);
+  const [connectedUsers] = useState(0);
   
   // 다이얼로그 상태
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testQuery, setTestQuery] = useState('');
-  const [testResult, setTestResult] = useState<any>(null);
+  const [testResult, setTestResult] = useState<Record<string, unknown> | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   
   // 새로운 다이얼로그 상태들
@@ -320,7 +318,7 @@ const AdminDashboard: React.FC = () => {
       setDocuments(documentsData.documents);
       setSessions(sessionsData.sessions);
       setRealtimeMetrics(realtimeData);
-    } catch (error) {
+    } catch (_) {
       console.error('Failed to load dashboard data:', error);
       showSnackbar('대시보드 데이터 로딩 실패', 'error');
     } finally {
@@ -370,7 +368,7 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, [period]);
+  }, [period, loadDashboardData]);
 
   // 테스트 실행
   const handleTest = async () => {
@@ -380,7 +378,7 @@ const AdminDashboard: React.FC = () => {
     try {
       const result = await adminService.testRAG(testQuery);
       setTestResult(result);
-    } catch (error) {
+    } catch (_) {
       console.error('Test failed:', error);
       setTestResult({ error: 'Test execution failed' });
     } finally {
@@ -394,7 +392,7 @@ const AdminDashboard: React.FC = () => {
       try {
         await adminService.rebuildIndex();
         alert('인덱스 재구축이 시작되었습니다.');
-      } catch (error) {
+      } catch (_) {
         alert('인덱스 재구축 실패');
       }
     }
@@ -412,7 +410,7 @@ const AdminDashboard: React.FC = () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       showSnackbar('로그 다운로드 완료', 'success');
-    } catch (error) {
+    } catch (_) {
       showSnackbar('로그 다운로드 실패', 'error');
     }
   };
@@ -423,7 +421,7 @@ const AdminDashboard: React.FC = () => {
       const sessionDetails = await adminService.getSessionDetails(sessionId);
       setSelectedSession(sessionDetails);
       setSessionDetailOpen(true);
-    } catch (error) {
+    } catch (_) {
       showSnackbar('세션 정보 로딩 실패', 'error');
     }
   };
@@ -434,7 +432,7 @@ const AdminDashboard: React.FC = () => {
         await adminService.deleteSession(sessionId);
         setSessions(prev => prev.filter(s => s.id !== sessionId));
         showSnackbar('세션이 삭제되었습니다', 'success');
-      } catch (error) {
+      } catch (_) {
         showSnackbar('세션 삭제 실패', 'error');
       }
     }
@@ -451,7 +449,7 @@ const AdminDashboard: React.FC = () => {
         await adminService.deleteDocument(documentName);
         setDocuments(prev => prev.filter(d => d.name !== documentName));
         showSnackbar('문서가 삭제되었습니다', 'success');
-      } catch (error) {
+      } catch (_) {
         showSnackbar('문서 삭제 실패', 'error');
       }
     }
@@ -461,22 +459,22 @@ const AdminDashboard: React.FC = () => {
     try {
       await adminService.reprocessDocument(documentName);
       showSnackbar('문서 재처리가 시작되었습니다', 'success');
-    } catch (error) {
+    } catch (_) {
       showSnackbar('문서 재처리 실패', 'error');
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy': return 'success';
-      case 'error': return 'error';
-      default: return 'warning';
-    }
-  };
+  // const getStatusColor = (status: string) => {
+  //   switch (status) {
+  //     case 'healthy': return 'success';
+  //     case 'error': return 'error';
+  //     default: return 'warning';
+  //   }
+  // };
 
-  const getStatusIcon = (status: string) => {
-    return status === 'healthy' ? '●' : status === 'error' ? '●' : '●';
-  };
+  // const getStatusIcon = (status: string) => {
+  //   return status === 'healthy' ? '●' : status === 'error' ? '●' : '●';
+  // };
 
   if (loading) {
     return (
@@ -1180,7 +1178,7 @@ const AdminDashboard: React.FC = () => {
                     검색된 청크:
                   </Typography>
                   <Box sx={{ mb: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 1 }}>
-                    {testResult.retrievedChunks?.map((chunk: any, index: number) => (
+                    {testResult.retrievedChunks?.map((chunk: Record<string, unknown>, index: number) => (
                       <Typography key={index} variant="body2" sx={{ mb: 1 }}>
                         {chunk.content} (점수: {chunk.score?.toFixed(3)})
                       </Typography>
