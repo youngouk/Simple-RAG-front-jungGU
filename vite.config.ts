@@ -38,6 +38,18 @@ export default defineConfig({
           router: ['react-router-dom'],
           utils: ['@emotion/react', '@emotion/styled'],
         },
+        // 정적 자산 파일명 최적화 (Railway에서 캐싱 향상)
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+      },
+    },
+    // Railway 환경에서 메모리 최적화
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // 프로덕션에서 console.log 제거
+        drop_debugger: true,
       },
     },
   },

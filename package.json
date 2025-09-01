@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "serve": "serve -s dist -l $PORT --single"
+    "serve": "serve -s dist -l $PORT --single",
+    "build:railway": "npm run lint && npm run build",
+    "start": "serve -s dist -l $PORT --single"
   },
   "dependencies": {
     "serve": "^14.2.0",
