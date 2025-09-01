@@ -8,20 +8,20 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_DEV_API_BASE_URL || 'http://localhost:8000',
         changeOrigin: true,
       },
       '/admin-ws': {
-        target: 'ws://localhost:8000',
+        target: process.env.VITE_DEV_WS_BASE_URL || 'ws://localhost:8000',
         ws: true,
         changeOrigin: true,
       },
       '/health': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_DEV_API_BASE_URL || 'http://localhost:8000',
         changeOrigin: true,
       },
       '/stats': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_DEV_API_BASE_URL || 'http://localhost:8000',
         changeOrigin: true,
       },
     },

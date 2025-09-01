@@ -9,11 +9,71 @@ import {
   Stats,
 } from '../types';
 
-// API 기본 설정
-// 개발 모드에서는 항상 상대 URL 사용 (Vite 프록시 활용)
-const API_BASE_URL = import.meta.env.DEV ? '' : (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-);
+// Runtime 설정 타입 정의
+declare global {
+  interface Window {
+    RUNTIME_CONFIG?: {
+      API_BASE_URL?: string;
+      NODE_ENV?: string;
+    };
+  }
+}
+
+// API 기본 설정 - Railway 자동 감지 로직 추가
+const getAPIBaseURL = (): string => {
+  // 개발 모드에서는 Vite 프록시 사용
+  if (import.meta.env.DEV) {
+    return '';
+  }
+  
+  // 런타임 설정이 있는 경우 우선 사용 (Railway 환경)
+  if (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.API_BASE_URL) {
+    return window.RUNTIME_CONFIG.API_BASE_URL;
+  }
+  
+  // 빌드 타임 환경 변수가 설정된 경우 사용
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Railway 환경 자동 감지
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.host;
+    const currentProtocol = window.location.protocol;
+    
+    // Railway 도메인 패턴 감지 (.up.railway.app 또는 .railway.app)
+    if (currentHost.includes('railway.app')) {
+      // Railway에서 백엔드와 프론트엔드가 같은 서비스라면 같은 호스트 사용
+      // 예: simple-rag-production.up.railway.app
+      return `${currentProtocol}//${currentHost}`;
+    }
+    
+    // Railway public domain 패턴 감지
+    if (currentHost.includes('-production') || currentHost.includes('-staging')) {
+      return `${currentProtocol}//${currentHost}`;
+    }
+    
+    // Vercel, Netlify 등 다른 호스팅에서 Railway 백엔드를 사용하는 경우
+    // 환경 변수 설정 필요함을 알림
+    console.warn('⚠️ API URL이 설정되지 않았습니다. Railway 대시보드에서 백엔드 URL을 설정하거나 /config.js를 수정하세요.');
+  }
+  
+  // 기본값: localhost (로컬 개발용)
+  // 프로덕션에서는 이 값이 사용되면 안 됨
+  console.error('🚨 프로덕션 환경에서 localhost API URL을 사용합니다. 백엔드 URL을 설정하세요.');
+  return 'http://localhost:8000';
+};
+
+const API_BASE_URL = getAPIBaseURL();
+
+// 디버깅을 위한 API URL 로깅
+console.log('🚀 API Base URL:', API_BASE_URL);
+console.log('📍 Current Environment:', {
+  DEV: import.meta.env.DEV,
+  NODE_ENV: import.meta.env.NODE_ENV,
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+  currentHost: typeof window !== 'undefined' ? window.location.host : 'N/A'
+});
 
 const api = axios.create({
   baseURL: API_BASE_URL,

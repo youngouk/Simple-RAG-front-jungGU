@@ -4,13 +4,93 @@
  * 향상된 기능: 실시간 모니터링, 세션 관리, WebSocket 지원
  */
 
-// 개발 모드에서는 항상 상대 URL 사용 (Vite 프록시 활용)
-const API_BASE_URL = import.meta.env.DEV ? '' : (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-);
-const WS_BASE_URL = import.meta.env.DEV ? `ws://${window.location.host}` : (
-  import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000'
-);
+// Runtime 설정 타입 정의
+declare global {
+  interface Window {
+    RUNTIME_CONFIG?: {
+      API_BASE_URL?: string;
+      WS_BASE_URL?: string;
+      NODE_ENV?: string;
+    };
+  }
+}
+
+// API 기본 설정 - Railway 자동 감지 로직 추가
+const getAPIBaseURL = (): string => {
+  // 개발 모드에서는 Vite 프록시 사용
+  if (import.meta.env.DEV) {
+    return '';
+  }
+  
+  // 런타임 설정이 있는 경우 우선 사용 (Railway 환경)
+  if (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.API_BASE_URL) {
+    return window.RUNTIME_CONFIG.API_BASE_URL;
+  }
+  
+  // 빌드 타임 환경 변수가 설정된 경우 사용
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Railway 환경 자동 감지
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.host;
+    const currentProtocol = window.location.protocol;
+    
+    // Railway 도메인 패턴 감지
+    if (currentHost.includes('railway.app')) {
+      return `${currentProtocol}//${currentHost}`;
+    }
+    
+    // Railway public domain 패턴 감지
+    if (currentHost.includes('-production') || currentHost.includes('-staging')) {
+      return `${currentProtocol}//${currentHost}`;
+    }
+  }
+  
+  // 기본값: localhost (로컬 개발용)
+  console.error('🚨 AdminService: 프로덕션 환경에서 localhost API URL을 사용합니다.');
+  return 'http://localhost:8000';
+};
+
+const getWSBaseURL = (): string => {
+  // 개발 모드에서는 현재 호스트 사용
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    return `ws://${window.location.host}`;
+  }
+  
+  // 런타임 설정이 있는 경우 우선 사용
+  if (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.WS_BASE_URL) {
+    return window.RUNTIME_CONFIG.WS_BASE_URL;
+  }
+  
+  // 빌드 타임 환경 변수가 설정된 경우 사용
+  if (import.meta.env.VITE_WS_BASE_URL) {
+    return import.meta.env.VITE_WS_BASE_URL;
+  }
+  
+  // Railway 환경 자동 감지
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.host;
+    
+    // Railway 도메인 패턴 감지 (WebSocket은 wss 사용)
+    if (currentHost.includes('railway.app')) {
+      return `wss://${currentHost}`;
+    }
+    
+    // Railway public domain 패턴 감지
+    if (currentHost.includes('-production') || currentHost.includes('-staging')) {
+      return `wss://${currentHost}`;
+    }
+  }
+  
+  // 기본값: localhost WebSocket
+  console.error('🚨 AdminService: 프로덕션 환경에서 localhost WebSocket URL을 사용합니다.');
+  return 'ws://localhost:8000';
+};
+
+const API_BASE_URL = getAPIBaseURL();
+const WS_BASE_URL = getWSBaseURL();
 
 // Removed unused ApiResponse interface
 

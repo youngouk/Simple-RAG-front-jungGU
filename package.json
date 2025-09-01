@@ -9,8 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "serve": "serve -s dist -l $PORT --single",
-    "build:railway": "npm run lint && npm run build",
-    "start": "serve -s dist -l $PORT --single"
+    "build:railway": "npm run lint && npm run build && node generate-config.js",
+    "generate-config": "node generate-config.js",
+    "start": "node generate-config.js && serve -s dist -l $PORT --single"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
