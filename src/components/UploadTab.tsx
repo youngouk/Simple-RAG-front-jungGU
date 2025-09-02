@@ -82,16 +82,17 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
       'text/html',
+      'application/json', // JSON 파일 지원 추가
     ];
     
     // 확장자로도 체크
-    const allowedExtensions = ['.pdf', '.txt', '.md', '.markdown', '.doc', '.docx', '.xls', '.xlsx', '.html', '.htm'];
+    const allowedExtensions = ['.pdf', '.txt', '.md', '.markdown', '.doc', '.docx', '.xls', '.xlsx', '.html', '.htm', '.json'];
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     
     const maxSize = 50 * 1024 * 1024; // 50MB
 
     if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-      return 'PDF, TXT, Markdown, Word, Excel, HTML 파일만 업로드 가능합니다.';
+      return 'PDF, TXT, Markdown, Word, Excel, HTML, JSON 파일만 업로드 가능합니다.';
     }
 
     if (file.size > maxSize) {
@@ -524,7 +525,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
             파일을 드래그하여 놓거나 클릭하여 선택하세요
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            PDF, TXT, Markdown, Word, Excel, HTML 파일 (최대 50MB)
+            PDF, TXT, Markdown, Word, Excel, HTML, JSON 파일 (최대 50MB)
           </Typography>
           <Button variant="contained" startIcon={<CloudUpload />}>
             파일 선택
@@ -534,7 +535,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.txt,.md,.markdown,.doc,.docx,.xls,.xlsx,.html,.htm"
+          accept=".pdf,.txt,.md,.markdown,.doc,.docx,.xls,.xlsx,.html,.htm,.json"
           style={{ display: 'none' }}
           onChange={handleFileSelect}
         />
