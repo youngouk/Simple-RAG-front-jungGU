@@ -36,21 +36,31 @@ const getAPIBaseURL = (): string => {
     return import.meta.env.VITE_API_BASE_URL;
   }
   
-  // Railway 환경 자동 감지
+  // Railway 환경 특별 처리
   if (typeof window !== 'undefined') {
     const currentHost = window.location.host;
     const currentProtocol = window.location.protocol;
     
-    // Railway 도메인 패턴 감지 (.up.railway.app 또는 .railway.app)
-    if (currentHost.includes('railway.app')) {
-      // Railway에서 백엔드와 프론트엔드가 같은 서비스라면 같은 호스트 사용
-      // 예: simple-rag-production.up.railway.app
-      return `${currentProtocol}//${currentHost}`;
+    // 특정 프론트엔드 도메인에서 백엔드 URL 자동 매핑
+    if (currentHost === 'simple-rag-frontend-production.up.railway.app') {
+      // 확인된 백엔드 URL로 직접 연결
+      return 'https://simple-rag-production-bb72.up.railway.app';
     }
     
-    // Railway public domain 패턴 감지
+    // Railway 도메인 패턴 감지 (.up.railway.app 또는 .railway.app)
+    if (currentHost.includes('railway.app') && currentHost.includes('frontend')) {
+      // 프론트엔드 도메인에서 'frontend' 제거하여 백엔드 URL 추측
+      const backendHost = currentHost.replace('-frontend', '');
+      console.log('🔄 백엔드 URL 자동 감지 시도:', `${currentProtocol}//${backendHost}`);
+      return `${currentProtocol}//${backendHost}`;
+    }
+    
+    // Railway public domain 패턴 - 백엔드 전용
     if (currentHost.includes('-production') || currentHost.includes('-staging')) {
-      return `${currentProtocol}//${currentHost}`;
+      // 백엔드 서비스로 판단되는 경우에만 같은 호스트 사용
+      if (!currentHost.includes('frontend')) {
+        return `${currentProtocol}//${currentHost}`;
+      }
     }
     
     // Vercel, Netlify 등 다른 호스팅에서 Railway 백엔드를 사용하는 경우
