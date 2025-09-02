@@ -327,26 +327,31 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
         }
       } catch (error: unknown) {
         // 네트워크 에러나 API 에러 처리
-        clearInterval(checkInterval);
-        
+        failureCount++;
         const errorMessage = error?.message || error?.toString() || '상태 확인 중 오류가 발생했습니다.';
         
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileId
-              ? {
-                  ...f,
-                  status: 'failed',
-                  error: `상태 확인 실패: ${errorMessage}`,
-                }
-              : f
-          )
-        );
+        console.warn(`상태 확인 실패 ${failureCount}/${maxFailures}:`, errorMessage);
         
-        showToast({
-          type: 'error',
-          message: `상태 확인 중 오류: ${errorMessage}`,
-        });
+        // 연속 실패 횟수가 임계값을 초과하면 중단
+        if (failureCount >= maxFailures) {
+          clearInterval(checkInterval);
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileId
+                ? {
+                    ...f,
+                    status: 'failed',
+                    error: `네트워크 오류로 상태 확인 실패 (${failureCount}회 연속)`,
+                  }
+                : f
+            )
+          );
+          
+          showToast({
+            type: 'error',
+            message: '네트워크 연결 문제로 상태 확인을 중단했습니다.',
+          });
+        }
       }
     }, 5000); // 5초마다 확인 (큰 문서 처리 대응)
   };
