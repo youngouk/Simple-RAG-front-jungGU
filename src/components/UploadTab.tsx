@@ -251,13 +251,18 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
   // 업로드 상태 확인
   const checkUploadStatus = async (fileId: string, jobId: string) => {
     let checkCount = 0;
-    const maxChecks = 180; // 최대 6분간 체크 (2초 * 180회)
+    const maxChecks = 120; // 최대 10분간 체크 (5초 * 120회)
+    let failureCount = 0;
+    const maxFailures = 5; // 연속 5회 실패 시 중단
     
     const checkInterval = setInterval(async () => {
       try {
         checkCount++;
         const response = await documentAPI.getUploadStatus(jobId);
         const status = response.data;
+        
+        // 성공적으로 응답을 받았으면 실패 카운터 리셋
+        failureCount = 0;
 
         if (status.status === 'completed' || status.status === 'completed_with_errors') {
           clearInterval(checkInterval);
@@ -343,7 +348,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
           message: `상태 확인 중 오류: ${errorMessage}`,
         });
       }
-    }, 2000); // 2초마다 확인
+    }, 5000); // 5초마다 확인 (큰 문서 처리 대응)
   };
 
   // 파일 제거

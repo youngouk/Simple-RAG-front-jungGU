@@ -87,7 +87,7 @@ console.log('📍 Current Environment:', {
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 300000, // 5분으로 연장 (큰 문서 처리 대응)
   headers: {
     'Content-Type': 'application/json',
   },
@@ -135,7 +135,17 @@ api.interceptors.response.use(
 
 // Health Check API
 export const healthAPI = {
-  check: () => api.get<HealthStatus>('/health'),
+  check: () => {
+    const healthApi = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: 15000, // 15초로 설정
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: false,
+    });
+    return healthApi.get<HealthStatus>('/health');
+  },
 };
 
 // 고유한 임시 ID 생성을 위한 카운터
@@ -228,9 +238,18 @@ export const documentAPI = {
     });
   },
 
-  // 업로드 상태 확인
-  getUploadStatus: (jobId: string) => 
-    api.get<UploadStatus>(`/api/upload/status/${jobId}`),
+  // 업로드 상태 확인용 별도 axios 인스턴스
+  getUploadStatus: (jobId: string) => {
+    const statusApi = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: 60000, // 1분으로 설정
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: false,
+    });
+    return statusApi.get<UploadStatus>(`/api/upload/status/${jobId}`);
+  },
 
   // 문서 삭제 (단일)
   deleteDocument: (id: string) => 
