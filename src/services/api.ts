@@ -91,6 +91,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // CORS 설정 추가 - Railway 백엔드 호환성
+  withCredentials: false, // CORS 이슈 해결을 위해 credentials 비활성화
 });
 
 // Request interceptor
@@ -117,6 +119,16 @@ api.interceptors.response.use(
       localStorage.removeItem('sessionId');
       window.location.href = '/login';
     }
+    
+    // CORS 오류 상세 로깅
+    if (error.code === 'ERR_NETWORK' || error.message.includes('CORS')) {
+      console.warn('🌐 CORS 오류 감지:', {
+        message: error.message,
+        config: error.config,
+        백엔드_URL: API_BASE_URL
+      });
+    }
+    
     return Promise.reject(error);
   }
 );
