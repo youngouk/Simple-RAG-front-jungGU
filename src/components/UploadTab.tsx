@@ -65,8 +65,8 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [globalSettings, setGlobalSettings] = useState<UploadSettings>({
     splitterType: 'recursive',
-    chunkSize: 400,
-    chunkOverlap: 50
+    chunkSize: 1500,
+    chunkOverlap: 200
   });
   const [showSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,7 +145,25 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
     );
   };
 
-  // 모든 파일을 ready 상태로 변경
+  // 모든 파일을 ready 상태로 변경하고 자동으로 업로드 시작
+  const markAllFilesReadyAndStart = () => {
+    // 1단계: 모든 selected 파일을 ready로 변경
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.status === 'selected' ? { ...f, status: 'ready' } : f
+      )
+    );
+    
+    // 2단계: 잠시 후 업로드 자동 시작
+    setTimeout(() => {
+      const readyFiles = files.filter(f => f.status === 'selected');
+      readyFiles.forEach(file => {
+        uploadSingleFile({ ...file, status: 'ready' });
+      });
+    }, 200);
+  };
+
+  // 기존 개별 준비 기능 (개별 버튼용)
   const markAllFilesReady = () => {
     setFiles((prev) =>
       prev.map((f) =>
@@ -462,7 +480,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
               label="청크 크기"
               type="number"
               value={globalSettings.chunkSize}
-              onChange={(e) => setGlobalSettings(prev => ({ ...prev, chunkSize: parseInt(e.target.value) || 400 }))}
+              onChange={(e) => setGlobalSettings(prev => ({ ...prev, chunkSize: parseInt(e.target.value) || 1500 }))}
               sx={{ width: 120 }}
             />
             <TextField
@@ -470,26 +488,37 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
               label="청크 겹침"
               type="number"
               value={globalSettings.chunkOverlap}
-              onChange={(e) => setGlobalSettings(prev => ({ ...prev, chunkOverlap: parseInt(e.target.value) || 50 }))}
+              onChange={(e) => setGlobalSettings(prev => ({ ...prev, chunkOverlap: parseInt(e.target.value) || 200 }))}
               sx={{ width: 120 }}
             />
             {selectedFilesCount > 0 && (
               <>
                 <Button 
+                  variant="contained" 
+                  onClick={markAllFilesReadyAndStart}
+                  disabled={processingFilesCount > 0}
+                  startIcon={<PlayArrow />}
+                  color="primary"
+                >
+                  일괄 처리 시작 ({selectedFilesCount}개)
+                </Button>
+                <Button 
                   variant="outlined" 
                   onClick={markAllFilesReady}
                   disabled={processingFilesCount > 0}
+                  size="small"
                 >
-                  모든 파일 준비
+                  준비만
                 </Button>
                 {readyFilesCount > 0 && (
                   <Button 
-                    variant="contained" 
+                    variant="outlined" 
                     onClick={startAllUploads}
                     disabled={processingFilesCount > 0}
                     startIcon={<CloudUpload />}
+                    size="small"
                   >
-                    업로드 시작 ({readyFilesCount}개)
+                    준비된 파일 시작 ({readyFilesCount}개)
                   </Button>
                 )}
               </>
