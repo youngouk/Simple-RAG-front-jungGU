@@ -270,7 +270,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
   // 업로드 상태 확인
   const checkUploadStatus = async (fileId: string, jobId: string) => {
     let checkCount = 0;
-    const maxChecks = 120; // 최대 10분간 체크 (5초 * 120회)
+    const maxChecks = 360; // 최대 30분간 체크 (5초 * 360회)
     let failureCount = 0;
     const maxFailures = 5; // 연속 5회 실패 시 중단
     
