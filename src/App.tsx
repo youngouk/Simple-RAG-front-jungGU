@@ -289,7 +289,7 @@ function LegacyApp() {
                 letterSpacing: '-0.01em'
               }}
             >
-              영욱 퇴사봇 RAG - 개발자 도구
+              RAG Pipe - 개발자 도구
             </Typography>
             <Chip
               label={serverStatus === 'healthy' ? '정상' : serverStatus === 'checking' ? '확인중' : '오류'}

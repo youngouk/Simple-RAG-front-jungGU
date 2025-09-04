@@ -48,7 +48,6 @@ import {
   CheckCircle,
   Error,
   HourglassEmpty,
-  Sort,
   ArrowUpward,
   ArrowDownward,
   ViewList,
@@ -97,8 +96,8 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
   // 문서 정렬 함수
   const sortDocuments = useCallback((docs: Document[]) => {
     return [...docs].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number;
+      let bValue: string | number;
 
       switch (sortField) {
         case 'filename':

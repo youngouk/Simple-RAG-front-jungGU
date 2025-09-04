@@ -510,7 +510,7 @@ const AdminDashboard: React.FC = () => {
                 letterSpacing: '-0.01em'
               }}
             >
-              영욱 퇴사봇 RAG - 관리자 대시보드
+              RAG Pipe - 관리자 대시보드
             </Typography>
             <Button
               color="inherit"

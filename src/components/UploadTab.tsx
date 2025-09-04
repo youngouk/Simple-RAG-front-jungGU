@@ -163,7 +163,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
     if (validFiles.length > 0) {
       setFiles((prev) => [...prev, ...validFiles]);
     }
-  }, [globalSettings, showToast, validateFile]);
+  }, [globalSettings, showToast, validateFile, truncateFileName]);
 
   // 단일 파일을 ready 상태로 변경
   const markFileReady = (fileId: string) => {
