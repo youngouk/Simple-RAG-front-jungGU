@@ -245,7 +245,7 @@ const AdminDashboard: React.FC = () => {
   
   // 기존 State 관리
   const [loading, setLoading] = useState(true);
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [, setSystemStatus] = useState<SystemStatus | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [keywords, setKeywords] = useState<KeywordData | null>(null);
   const [chunks, setChunks] = useState<ChunkData | null>(null);
