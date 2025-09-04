@@ -51,19 +51,20 @@ import {
   Group as SessionsIcon,
   Description as DocumentsIcon,
   Analytics as AnalyticsIcon,
-  Dashboard as OverviewIcon
+  Dashboard as OverviewIcon,
+  Settings as SettingsIcon
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { adminService } from '../../services/adminService';
 
-// interface SystemStatus {
-//   timestamp: string;
-//   services: {
-//     qdrant: { status: string; message: string; responseTime?: string };
-//     dynamodb: { status: string; message: string; responseTime?: string };
-//     llm: { status: string; message: string; responseTime?: string };
-//   };
-// }
+interface SystemStatus {
+  timestamp: string;
+  services: {
+    qdrant: { status: string; message: string; responseTime?: string };
+    dynamodb: { status: string; message: string; responseTime?: string };
+    llm: { status: string; message: string; responseTime?: string };
+  };
+}
 
 interface Metrics {
   period: string;
@@ -244,7 +245,7 @@ const AdminDashboard: React.FC = () => {
   
   // 기존 State 관리
   const [loading, setLoading] = useState(true);
-  // const [systemStatus] = useState<SystemStatus | null>(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [keywords, setKeywords] = useState<KeywordData | null>(null);
   const [chunks, setChunks] = useState<ChunkData | null>(null);

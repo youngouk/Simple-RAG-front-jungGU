@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Box, Typography, Button, Paper, Alert } from '@mui/material';
-import { Refresh, BugReport } from '@mui/icons-material';
+import { Refresh, BugReport, ArrowBack } from '@mui/icons-material';
 
 interface Props {
   children: ReactNode;
@@ -45,8 +45,13 @@ class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
-  handleReload = () => {
-    window.location.reload();
+  handleGoBack = () => {
+    // 브라우저 히스토리가 있으면 이전 페이지로, 없으면 홈페이지로
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = '/';
+    }
   };
 
   render() {
@@ -115,10 +120,11 @@ class ErrorBoundary extends Component<Props, State> {
               </Button>
               <Button
                 variant="outlined"
-                onClick={this.handleReload}
+                startIcon={<ArrowBack />}
+                onClick={this.handleGoBack}
                 color="secondary"
               >
-                페이지 새로고침
+                이전으로 돌아가기
               </Button>
             </Box>
 
