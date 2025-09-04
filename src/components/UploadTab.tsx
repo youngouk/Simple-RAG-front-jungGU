@@ -339,14 +339,14 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
                 ? {
                     ...f,
                     status: 'completed',
-                    documentId: status.documentId,
+                    documentId: status.documentId || status.job_id,
                     processingDetails: {
                       processingTime: status.processing_time || 0,
-                      chunksCount: status.results?.chunks || 0,
-                      loaderType: status.processing_info?.loader_type || 'unknown',
-                      splitterType: status.processing_info?.splitter_type || 'unknown',
-                      embedderModel: status.processing_info?.embedder_model || 'unknown',
-                      storageLocation: status.processing_info?.storage_location || 'unknown'
+                      chunksCount: status.chunk_count || 0,
+                      loaderType: 'Markdown', // 백엔드에서 제공하지 않는 정보이므로 기본값
+                      splitterType: 'Recursive', // 기본값
+                      embedderModel: 'OpenAI', // 기본값 
+                      storageLocation: 'Vector Database' // 기본값
                     }
                   }
                 : f
@@ -354,7 +354,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
           );
           showToast({
             type: 'success',
-            message: `문서가 성공적으로 업로드되었습니다. (${status.results?.chunks || 0}개 청크 생성)`,
+            message: `문서가 성공적으로 업로드되었습니다. (${status.chunk_count || 0}개 청크 생성)`,
           });
         } else if (status.status === 'failed') {
           clearInterval(checkInterval);
@@ -364,7 +364,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
                 ? {
                     ...f,
                     status: 'failed',
-                    error: status.error || '처리 중 오류가 발생했습니다.',
+                    error: status.error_message || status.error || '처리 중 오류가 발생했습니다.',
                   }
                 : f
             )

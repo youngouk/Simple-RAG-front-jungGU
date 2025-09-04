@@ -43,11 +43,17 @@ export interface UploadResponse {
 }
 
 export interface UploadStatus {
-  status: 'processing' | 'completed' | 'failed';
+  job_id: string;
+  status: 'processing' | 'completed' | 'failed' | 'completed_with_errors';
   progress: number;
   message: string;
-  documentId?: string;
-  error?: string;
+  filename?: string;
+  chunk_count?: number;
+  processing_time?: number;
+  error_message?: string | null;
+  timestamp?: string;
+  documentId?: string; // 백워드 호환성을 위해 유지
+  error?: string; // 백워드 호환성을 위해 유지
 }
 
 export interface ChatMessage {
