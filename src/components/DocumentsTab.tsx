@@ -24,6 +24,19 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  ToggleButton,
+  ToggleButtonGroup,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableSortLabel,
 } from '@mui/material';
 import {
   Search,
@@ -35,6 +48,11 @@ import {
   CheckCircle,
   Error,
   HourglassEmpty,
+  Sort,
+  ArrowUpward,
+  ArrowDownward,
+  ViewList,
+  ViewModule,
 } from '@mui/icons-material';
 import { Document, ToastMessage } from '../types';
 import { documentAPI } from '../services/api';
@@ -57,6 +75,11 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+  
+  // 정렬 및 뷰 상태
+  const [sortField, setSortField] = useState<'filename' | 'size' | 'uploadedAt' | 'type'>('uploadedAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // 문서 삭제 취소 핸들러
   const handleDeleteCancel = useCallback(() => {
@@ -69,7 +92,50 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
     setBulkDeleteConfirmOpen(false);
   }, []);
 
-  const pageSize = 12;
+  const pageSize = 50;
+
+  // 문서 정렬 함수
+  const sortDocuments = useCallback((docs: Document[]) => {
+    return [...docs].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'filename':
+          aValue = a.filename.toLowerCase();
+          bValue = b.filename.toLowerCase();
+          break;
+        case 'size':
+          aValue = a.size;
+          bValue = b.size;
+          break;
+        case 'uploadedAt':
+          aValue = new Date(a.uploadedAt).getTime();
+          bValue = new Date(b.uploadedAt).getTime();
+          break;
+        case 'type':
+          aValue = a.filename.split('.').pop()?.toLowerCase() || '';
+          bValue = b.filename.split('.').pop()?.toLowerCase() || '';
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [sortField, sortDirection]);
+
+  // 정렬 변경 핸들러
+  const handleSort = useCallback((field: typeof sortField) => {
+    if (field === sortField) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  }, [sortField]);
 
   // 문서 목록 조회
   const fetchDocuments = useCallback(async () => {
@@ -80,7 +146,8 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
         limit: pageSize,
         search: searchQuery,
       });
-      setDocuments(response.data.documents);
+      const sortedDocuments = sortDocuments(response.data.documents);
+      setDocuments(sortedDocuments);
       setTotalPages(Math.ceil(response.data.total / pageSize));
     } catch {
       showToast({
@@ -90,7 +157,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, searchQuery, showToast]);
+  }, [page, searchQuery, showToast, sortDocuments]);
 
   useEffect(() => {
     fetchDocuments();
@@ -258,7 +325,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
       {/* 검색 및 액션 바 */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               variant="outlined"
@@ -273,6 +340,45 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
                 ),
               }}
             />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>정렬 기준</InputLabel>
+              <Select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value as typeof sortField)}
+                label="정렬 기준"
+              >
+                <MenuItem value="uploadedAt">업로드 일시</MenuItem>
+                <MenuItem value="filename">파일명</MenuItem>
+                <MenuItem value="size">파일 크기</MenuItem>
+                <MenuItem value="type">파일 타입</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs="auto">
+            <Box display="flex" alignItems="center" gap={1}>
+              <IconButton
+                onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                color="primary"
+                size="small"
+              >
+                {sortDirection === 'asc' ? <ArrowUpward /> : <ArrowDownward />}
+              </IconButton>
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={(_, newMode) => newMode && setViewMode(newMode)}
+                size="small"
+              >
+                <ToggleButton value="list">
+                  <ViewList />
+                </ToggleButton>
+                <ToggleButton value="grid">
+                  <ViewModule />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
           </Grid>
           <Grid item xs={12} md={6}>
             <Box display="flex" gap={1} justifyContent="flex-end">
@@ -303,15 +409,131 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
         </Grid>
       </Paper>
 
-      {/* 문서 그리드 */}
+      {/* 문서 목록 */}
       {loading ? (
         <Box display="flex" justifyContent="center" py={4}>
           <CircularProgress />
         </Box>
       ) : (
         <>
-          <Grid container spacing={2}>
-            {documents.map((document) => (
+          {viewMode === 'list' ? (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedDocuments.size === documents.length && documents.length > 0}
+                        indeterminate={selectedDocuments.size > 0 && selectedDocuments.size < documents.length}
+                        onChange={toggleSelectAll}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'filename'}
+                        direction={sortField === 'filename' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('filename')}
+                      >
+                        파일명
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'size'}
+                        direction={sortField === 'size' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('size')}
+                      >
+                        크기
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={sortField === 'uploadedAt'}
+                        direction={sortField === 'uploadedAt' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('uploadedAt')}
+                      >
+                        업로드 일시
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>상태</TableCell>
+                    <TableCell align="center">액션</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {documents.map((document) => (
+                    <TableRow 
+                      key={document.id}
+                      selected={selectedDocuments.has(document.id)}
+                      hover
+                    >
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedDocuments.has(document.id)}
+                          onChange={() => toggleDocumentSelection(document.id)}
+                          disabled={!isValidDocumentId(document.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {getStatusIcon(document.status)}
+                          <Typography variant="body2" noWrap>
+                            {document.originalName || document.filename}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {formatFileSize(document.size)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {new Date(document.uploadedAt).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit', 
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={document.status} 
+                          size="small"
+                          color={
+                            document.status === 'completed' ? 'success' :
+                            document.status === 'failed' ? 'error' : 'warning'
+                          }
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box display="flex" gap={1}>
+                          <IconButton size="small" onClick={() => handleViewDetails(document)}>
+                            <Info fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDownload(document)}>
+                            <Download fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleDeleteClick(document.id)}
+                            disabled={!isValidDocumentId(document.id)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Grid container spacing={2}>
+              {documents.map((document) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={document.id}>
                 <Card 
                   sx={{ 
@@ -391,8 +613,10 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
                   </CardActions>
                 </Card>
               </Grid>
-            ))}
-          </Grid>
+                ))}
+              </Grid>
+            )
+          }
 
           {/* 페이지네이션 */}
           <Box display="flex" justifyContent="center" mt={4}>
