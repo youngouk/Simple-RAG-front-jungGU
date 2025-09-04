@@ -28,6 +28,7 @@ import {
   PlayArrow,
   ExpandMore,
   ExpandLess,
+  Refresh,
 } from '@mui/icons-material';
 import { ToastMessage } from '../types';
 import { documentAPI } from '../services/api';
@@ -45,6 +46,7 @@ interface UploadSettings {
 interface UploadFile {
   id: string;
   file: File;
+  originalFileName?: string; // 원본 파일명 보존 (파일명 단축 시 사용)
   status: 'selected' | 'ready' | 'uploading' | 'processing' | 'completed' | 'failed';
   progress: number;
   error?: string;
@@ -70,6 +72,21 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
   });
   const [showSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 파일명 단축 함수 (Linux 파일시스템 255자 제한 고려)
+  const truncateFileName = useCallback((fileName: string, maxLength: number = 100): string => {
+    const extension = fileName.substring(fileName.lastIndexOf('.'));
+    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+    
+    if (fileName.length <= maxLength) {
+      return fileName;
+    }
+    
+    const availableLength = maxLength - extension.length;
+    const truncatedName = nameWithoutExt.substring(0, availableLength);
+    
+    return truncatedName + extension;
+  }, []);
 
   // 파일 유효성 검사
   const validateFile = useCallback((file: File): string | null => {
@@ -99,8 +116,13 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
       return '파일 크기는 50MB를 초과할 수 없습니다.';
     }
 
+    // 파일명 길이 체크 및 자동 단축
+    if (file.name.length > 100) {
+      console.warn(`파일명이 길어서 자동 단축됩니다: ${file.name} -> ${truncateFileName(file.name)}`);
+    }
+
     return null;
-  }, []);
+  }, [truncateFileName]);
 
   // 파일 추가
   const addFiles = useCallback((newFiles: FileList | null) => {
@@ -114,9 +136,16 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
       if (error) {
         errors.push(`${file.name}: ${error}`);
       } else {
+        // 파일명이 길 경우 자동 단축
+        const truncatedFileName = truncateFileName(file.name);
+        const processedFile = file.name !== truncatedFileName 
+          ? new File([file], truncatedFileName, { type: file.type, lastModified: file.lastModified })
+          : file;
+
         validFiles.push({
           id: `${Date.now()}_${Math.random()}`,
-          file,
+          file: processedFile,
+          originalFileName: file.name, // 원본 파일명 보존
           status: 'selected',
           progress: 0,
           settings: { ...globalSettings }
@@ -178,6 +207,25 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
     if (file) {
       uploadSingleFile(file);
     }
+  };
+
+  // 실패한 파일 재시도
+  const retryFailedFile = (fileId: string) => {
+    setFiles(prev =>
+      prev.map(f =>
+        f.id === fileId && f.status === 'failed'
+          ? { ...f, status: 'ready', error: undefined, progress: 0 }
+          : f
+      )
+    );
+    
+    // 상태를 ready로 변경한 후 즉시 업로드 시작
+    setTimeout(() => {
+      const file = files.find(f => f.id === fileId);
+      if (file) {
+        uploadSingleFile({ ...file, status: 'ready', error: undefined, progress: 0 });
+      }
+    }, 100);
   };
 
   // 모든 ready 상태 파일 업로드 시작
@@ -644,6 +692,17 @@ export const UploadTab: React.FC<UploadTabProps> = ({ showToast }) => {
                       disabled={processingFilesCount > 0}
                     >
                       시작
+                    </Button>
+                  )}
+                  {file.status === 'failed' && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Refresh />}
+                      onClick={() => retryFailedFile(file.id)}
+                    >
+                      재시도
                     </Button>
                   )}
                   <IconButton
