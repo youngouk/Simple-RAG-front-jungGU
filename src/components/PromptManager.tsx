@@ -55,7 +55,6 @@ import promptService, {
   Prompt, 
   CreatePromptRequest, 
   UpdatePromptRequest,
-  PROMPT_STYLES,
   PROMPT_CATEGORIES 
 } from '../services/promptService';
 
@@ -158,7 +157,7 @@ const PromptManager: React.FC = () => {
       setEditDialogOpen(false);
       setEditingPrompt(null);
       await loadPrompts();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('프롬프트 저장 실패:', err);
       setError(err.response?.data?.detail || '프롬프트 저장에 실패했습니다.');
     }
@@ -173,7 +172,7 @@ const PromptManager: React.FC = () => {
       setDeleteDialogOpen(false);
       setSelectedPrompt(null);
       await loadPrompts();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('프롬프트 삭제 실패:', err);
       setError(err.response?.data?.detail || '프롬프트 삭제에 실패했습니다.');
     }
@@ -185,7 +184,7 @@ const PromptManager: React.FC = () => {
       const newName = `${prompt.name}_copy_${Date.now()}`;
       await promptService.duplicatePrompt(prompt.id, newName);
       await loadPrompts();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('프롬프트 복제 실패:', err);
       setError(err.response?.data?.detail || '프롬프트 복제에 실패했습니다.');
     }
@@ -196,7 +195,7 @@ const PromptManager: React.FC = () => {
     try {
       await promptService.togglePrompt(prompt.id, !prompt.is_active);
       await loadPrompts();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('프롬프트 상태 변경 실패:', err);
       setError(err.response?.data?.detail || '프롬프트 상태 변경에 실패했습니다.');
     }
@@ -217,7 +216,7 @@ const PromptManager: React.FC = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('프롬프트 내보내기 실패:', err);
       setError('프롬프트 내보내기에 실패했습니다.');
     }
@@ -233,7 +232,7 @@ const PromptManager: React.FC = () => {
       setImportOverwrite(false);
       await loadPrompts();
       alert(`${result.imported}개의 프롬프트를 성공적으로 가져왔습니다.`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('프롬프트 가져오기 실패:', err);
       setError(err.response?.data?.detail || '프롬프트 가져오기에 실패했습니다.');
     }
@@ -489,7 +488,7 @@ const PromptManager: React.FC = () => {
                 <Select
                   value={editingPrompt.category || 'custom'}
                   label="카테고리"
-                  onChange={(e) => setEditingPrompt({ ...editingPrompt, category: e.target.value as any })}
+                  onChange={(e) => setEditingPrompt({ ...editingPrompt, category: e.target.value as Prompt['category'] })}
                   disabled={isEditMode && selectedPrompt?.category === 'system'}
                 >
                   {PROMPT_CATEGORIES.map((category) => (
