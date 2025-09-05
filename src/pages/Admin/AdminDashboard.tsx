@@ -53,9 +53,11 @@ import {
   Analytics as AnalyticsIcon,
   Dashboard as OverviewIcon,
   Settings as SettingsIcon,
+  Psychology as PromptIcon,
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { adminService } from '../../services/adminService';
+import PromptManager from '../../components/PromptManager';
 
 interface SystemStatus {
   timestamp: string;
@@ -605,6 +607,7 @@ const AdminDashboard: React.FC = () => {
             <Tab icon={<SessionsIcon sx={{ fontSize: '20px' }} />} label="세션" iconPosition="start" />
             <Tab icon={<DocumentsIcon sx={{ fontSize: '20px' }} />} label="문서" iconPosition="start" />
             <Tab icon={<AnalyticsIcon sx={{ fontSize: '20px' }} />} label="성능" iconPosition="start" />
+            <Tab icon={<PromptIcon sx={{ fontSize: '20px' }} />} label="프롬프트" iconPosition="start" />
             <Tab icon={<SettingsIcon sx={{ fontSize: '20px' }} />} label="설정" iconPosition="start" />
           </Tabs>
       </Box>
@@ -1093,8 +1096,13 @@ const AdminDashboard: React.FC = () => {
         </Grid>
       </TabPanel>
 
-        {/* 설정 탭 */}
+        {/* 프롬프트 관리 탭 */}
         <TabPanel value={currentTab} index={4}>
+          <PromptManager />
+        </TabPanel>
+
+        {/* 설정 탭 */}
+        <TabPanel value={currentTab} index={5}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Card>

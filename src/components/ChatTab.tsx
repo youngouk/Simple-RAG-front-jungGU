@@ -36,11 +36,9 @@ import {
   Settings,
   BugReport,
   BarChart,
-  Psychology,
 } from '@mui/icons-material';
 import { ChatMessage, ToastMessage } from '../types';
 import { chatAPI } from '../services/api';
-import PromptManager from './PromptManager';
 
 // 귀여운 챗봇 아이콘 SVG 컴포넌트
 const CuteChatbotIcon = ({ fontSize = '24px', color = '#742DDD' }: { fontSize?: string; color?: string }) => (
@@ -421,7 +419,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
           >
             <Tab icon={<Info sx={{ fontSize: '1rem' }} />} label="세션 정보" iconPosition="start" />
             <Tab icon={<History sx={{ fontSize: '1rem' }} />} label="API 로그" iconPosition="start" />
-            <Tab icon={<Psychology sx={{ fontSize: '1rem' }} />} label="프롬프트" iconPosition="start" />
           </Tabs>
           
           {/* 스크롤 컨텐츠 영역 */}
@@ -640,7 +637,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                   새 세션 시작
                 </Button>
               </Box>
-            ) : leftPanelTab === 1 ? (
+            ) : (
               /* API 로그 탭 */
               <Box sx={{ p: 2 }}>
                 {apiLogs.length === 0 ? (
@@ -691,11 +688,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                       ))}
                   </Box>
                 )}
-              </Box>
-            ) : (
-              /* 프롬프트 관리 탭 */
-              <Box sx={{ p: 0, height: '100%', overflow: 'auto' }}>
-                <PromptManager />
               </Box>
             )}
           </Box>
