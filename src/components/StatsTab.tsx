@@ -25,11 +25,8 @@ import {
   LinearProgress,
 } from '@mui/material';
 import {
-  TrendingUp,
-  Storage,
   Speed,
   CheckCircle,
-  Description,
   Memory,
   Refresh,
   AccessTime,
@@ -69,27 +66,23 @@ interface SystemStatus {
   };
 }
 
-interface LogEntry {
+interface ApiCallLog {
   timestamp: string;
-  level: string;
-  method: string;
-  path: string;
-  status_code: number;
-  process_time: number;
-  client_ip?: string;
-  message?: string;
+  endpoint: string;
+  data: unknown;
+  error: string | null;
+  status: 'success' | 'error';
 }
 
 export const StatsTab: React.FC = () => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [apiCalls, setApiCalls] = useState<Record<string, any>>({});
+  const [apiCalls, setApiCalls] = useState<Record<string, ApiCallLog>>({});
   const [error, setError] = useState<string | null>(null);
 
   // API 호출 로거 
-  const logApiCall = useCallback((endpoint: string, data: any, error?: any) => {
+  const logApiCall = useCallback((endpoint: string, data: unknown, error?: Error) => {
     const timestamp = new Date().toISOString();
     const logEntry = {
       timestamp,
@@ -105,7 +98,7 @@ export const StatsTab: React.FC = () => {
     }));
   }, []);
 
-  const fetchSystemStats = async () => {
+  const fetchSystemStats = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -119,14 +112,15 @@ export const StatsTab: React.FC = () => {
       
       console.log('✅ 시스템 상태 데이터 로드 완료:', statusData);
       
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
       console.error('❌ 통계 데이터 로딩 실패:', err);
-      logApiCall('/api/admin/status', null, err);
-      setError(err.message || '데이터를 불러오는데 실패했습니다.');
+      logApiCall('/api/admin/status', null, err instanceof Error ? err : new Error(String(err)));
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [logApiCall]);
 
   useEffect(() => {
     fetchSystemStats();
@@ -134,7 +128,7 @@ export const StatsTab: React.FC = () => {
     // 30초마다 자동 갱신
     const interval = setInterval(fetchSystemStats, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchSystemStats]);
 
   const formatUptime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -549,7 +543,7 @@ export const StatsTab: React.FC = () => {
             </AccordionSummary>
             <AccordionDetails>
               <List dense>
-                {Object.entries(apiCalls).map(([endpoint, log]: [string, any]) => (
+                {Object.entries(apiCalls).map(([endpoint, log]) => (
                   <ListItem key={endpoint}>
                     <ListItemIcon>
                       <Chip 
