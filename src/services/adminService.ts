@@ -1,7 +1,7 @@
 /**
  * 관리자 시스템 API 서비스
- * 백엔드 관리자 API와 통신하는 서비스 레이어
- * 향상된 기능: 실시간 모니터링, 세션 관리, WebSocket 지원
+ * Railway 배포된 백엔드 서버와 통신하는 서비스 레이어
+ * 실시간 모니터링, 세션 관리, WebSocket 지원
  */
 
 // Runtime 설정 타입 정의
@@ -15,11 +15,11 @@ declare global {
   }
 }
 
-// API 기본 설정 - Railway 자동 감지 로직 추가
+// API 기본 설정 - Railway 배포된 백엔드 서버 사용
 const getAPIBaseURL = (): string => {
-  // 개발 모드에서는 Vite 프록시 사용
+  // Railway 배포된 백엔드 URL 직접 사용
   if (import.meta.env.DEV) {
-    return '';
+    return 'https://simple-rag-production-bb72.up.railway.app';
   }
   
   // 런타임 설정이 있는 경우 우선 사용 (Railway 환경)
@@ -48,15 +48,14 @@ const getAPIBaseURL = (): string => {
     }
   }
   
-  // 기본값: localhost (로컬 개발용)
-  console.error('🚨 AdminService: 프로덕션 환경에서 localhost API URL을 사용합니다.');
-  return 'http://localhost:8000';
+  // 기본값: Railway 프로덕션 URL
+  return 'https://simple-rag-production-bb72.up.railway.app';
 };
 
 const getWSBaseURL = (): string => {
-  // 개발 모드에서는 현재 호스트 사용
-  if (import.meta.env.DEV && typeof window !== 'undefined') {
-    return `ws://${window.location.host}`;
+  // Railway 배포된 백엔드 WebSocket URL 직접 사용
+  if (import.meta.env.DEV) {
+    return 'wss://simple-rag-production-bb72.up.railway.app';
   }
   
   // 런타임 설정이 있는 경우 우선 사용
@@ -84,15 +83,12 @@ const getWSBaseURL = (): string => {
     }
   }
   
-  // 기본값: localhost WebSocket
-  console.error('🚨 AdminService: 프로덕션 환경에서 localhost WebSocket URL을 사용합니다.');
-  return 'ws://localhost:8000';
+  // 기본값: Railway 프로덕션 WebSocket URL
+  return 'wss://simple-rag-production-bb72.up.railway.app';
 };
 
 const API_BASE_URL = getAPIBaseURL();
 const WS_BASE_URL = getWSBaseURL();
-
-// Removed unused ApiResponse interface
 
 class AdminService {
   private wsConnection: WebSocket | null = null;
@@ -100,28 +96,40 @@ class AdminService {
   private maxReconnectAttempts = 5;
   private reconnectInterval = 5000; // 5초
   private eventListeners: Map<string, ((...args: unknown[]) => void)[]> = new Map();
-  private async apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${API_BASE_URL}/api/admin${endpoint}`;
-    
-    const defaultOptions: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    };
 
+  constructor() {
+    console.log('🚀 AdminService 초기화');
+    console.log('📡 API Base URL:', API_BASE_URL);
+    console.log('🔗 WebSocket URL:', WS_BASE_URL);
+  }
+
+  /**
+   * API 호출 헬퍼 함수
+   */
+  private async apiCall(endpoint: string, options?: RequestInit) {
+    const url = `${API_BASE_URL}/api/admin${endpoint}`;
+    console.log('🌐 API 호출:', url);
+    
     try {
-      const response = await fetch(url, defaultOptions);
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        ...options,
+      });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`❌ API 오류 [${response.status}]:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
+      console.log('✅ API 응답:', endpoint, data);
       return data;
     } catch (error) {
-      console.error(`API call failed for ${endpoint}:`, error);
+      console.error(`❌ API 호출 실패 ${endpoint}:`, error);
       throw error;
     }
   }
@@ -131,14 +139,16 @@ class AdminService {
    */
   initWebSocket() {
     if (this.wsConnection?.readyState === WebSocket.OPEN) {
+      console.log('✅ WebSocket이 이미 연결되어 있습니다.');
       return;
     }
 
     try {
+      console.log('🔗 WebSocket 연결 시도:', `${WS_BASE_URL}/admin-ws`);
       this.wsConnection = new WebSocket(`${WS_BASE_URL}/admin-ws`);
       
       this.wsConnection.onopen = () => {
-        console.log('Admin WebSocket connected');
+        console.log('✅ Admin WebSocket 연결됨');
         this.reconnectAttempts = 0;
         this.emit('connection', { connected: true });
       };
@@ -146,24 +156,25 @@ class AdminService {
       this.wsConnection.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('📨 WebSocket 메시지:', data);
           this.emit(data.type, data.data);
         } catch (error) {
-          console.error('WebSocket message parse error:', error);
+          console.error('❌ WebSocket 메시지 파싱 오류:', error);
         }
       };
       
-      this.wsConnection.onclose = () => {
-        console.log('Admin WebSocket disconnected');
+      this.wsConnection.onclose = (event) => {
+        console.log('🔌 Admin WebSocket 연결 해제:', event.code, event.reason);
         this.emit('connection', { connected: false });
         this.scheduleReconnect();
       };
       
       this.wsConnection.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('❌ WebSocket 오류:', error);
         this.emit('error', error);
       };
     } catch (error) {
-      console.error('WebSocket connection failed:', error);
+      console.error('❌ WebSocket 연결 실패:', error);
       this.scheduleReconnect();
     }
   }
@@ -174,10 +185,14 @@ class AdminService {
   private scheduleReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
+      const delay = this.reconnectInterval * this.reconnectAttempts;
+      console.log(`🔄 WebSocket 재연결 시도 ${this.reconnectAttempts}/${this.maxReconnectAttempts} (${delay}ms 후)`);
+      
       setTimeout(() => {
-        console.log(`WebSocket reconnect attempt ${this.reconnectAttempts}`);
         this.initWebSocket();
-      }, this.reconnectInterval * this.reconnectAttempts);
+      }, delay);
+    } else {
+      console.error('❌ WebSocket 재연결 최대 시도 횟수 초과');
     }
   }
 
@@ -219,6 +234,7 @@ class AdminService {
    */
   disconnectWebSocket() {
     if (this.wsConnection) {
+      console.log('🔌 WebSocket 연결 해제');
       this.wsConnection.close();
       this.wsConnection = null;
     }
@@ -226,7 +242,7 @@ class AdminService {
   }
 
   /**
-   * 시스템 상태 조회 (향상된 버전)
+   * 시스템 상태 조회
    */
   async getSystemStatus() {
     return this.apiCall('/status');
@@ -247,400 +263,111 @@ class AdminService {
   }
 
   /**
-   * 주요 키워드 조회
+   * 키워드 분석 데이터 조회
    */
-  async getKeywords(period: string = '7d') {
+  async getKeywordAnalysis(period: string = '7d') {
     return this.apiCall(`/keywords?period=${period}`);
   }
 
   /**
-   * 자주 사용된 청크 조회
+   * 청크 활용 분석 조회
    */
-  async getChunks(period: string = '7d') {
+  async getChunkAnalysis(period: string = '7d') {
     return this.apiCall(`/chunks?period=${period}`);
   }
 
   /**
-   * 접속 국가 통계 조회
+   * 국가별 접속 분석 조회
    */
-  async getCountries(period: string = '7d') {
+  async getCountryAnalysis(period: string = '7d') {
     return this.apiCall(`/countries?period=${period}`);
   }
 
   /**
-   * 최근 채팅 로그 조회
+   * 최근 채팅 내역 조회
    */
   async getRecentChats(limit: number = 20) {
     return this.apiCall(`/recent-chats?limit=${limit}`);
   }
 
   /**
-   * 활성 세션 목록 조회
-   */
-  async getSessions(status: string = 'all', limit: number = 50, offset: number = 0) {
-    return this.apiCall(`/sessions?status=${status}&limit=${limit}&offset=${offset}`);
-  }
-
-  /**
-   * 특정 세션 상세 정보 조회
-   */
-  async getSessionDetails(sessionId: string) {
-    return this.apiCall(`/sessions/${encodeURIComponent(sessionId)}`);
-  }
-
-  /**
-   * 세션 삭제
-   */
-  async deleteSession(sessionId: string) {
-    return this.apiCall(`/sessions/${encodeURIComponent(sessionId)}`, {
-      method: 'DELETE'
-    });
-  }
-
-  /**
-   * 문서 목록 조회 (향상된 버전)
+   * 문서 관리 데이터 조회
    */
   async getDocuments() {
     return this.apiCall('/documents');
   }
 
   /**
+   * 세션 관리 데이터 조회
+   */
+  async getSessions(params: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) {
+    const { status = 'all', limit = 50, offset = 0 } = params;
+    return this.apiCall(`/sessions?status=${status}&limit=${limit}&offset=${offset}`);
+  }
+
+  /**
+   * 세션 삭제
+   */
+  async deleteSession(sessionId: string) {
+    return this.apiCall(`/sessions/${sessionId}`, { method: 'DELETE' });
+  }
+
+  /**
+   * 시스템 로그 다운로드
+   */
+  async downloadLogs() {
+    try {
+      const url = `${API_BASE_URL}/api/admin/logs/download`;
+      console.log('📥 로그 다운로드:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `system-logs-${new Date().toISOString().split('T')[0]}.log`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 로그 다운로드 실패:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 문서 삭제
    */
   async deleteDocument(documentId: string) {
-    return this.apiCall(`/documents/${encodeURIComponent(documentId)}`, {
-      method: 'DELETE'
-    });
+    return this.apiCall(`/documents/${documentId}`, { method: 'DELETE' });
   }
 
   /**
-   * 문서 상태 업데이트
-   */
-  async updateDocument(documentId: string, updates: { status?: string; metadata?: Record<string, unknown> }) {
-    return this.apiCall(`/documents/${encodeURIComponent(documentId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates)
-    });
-  }
-
-  /**
-   * 특정 문서의 청크 목록 조회
-   */
-  async getDocumentChunks(documentName: string, page: number = 1, limit: number = 50) {
-    return this.apiCall(`/documents/${encodeURIComponent(documentName)}/chunks?page=${page}&limit=${limit}`);
-  }
-
-  /**
-   * 특정 청크 상세 정보 조회
-   */
-  async getChunkDetails(chunkId: string) {
-    return this.apiCall(`/chunks/${encodeURIComponent(chunkId)}`);
-  }
-
-  /**
-   * 청크 삭제
-   */
-  async deleteChunk(chunkId: string) {
-    return this.apiCall(`/chunks/${encodeURIComponent(chunkId)}`, {
-      method: 'DELETE'
-    });
-  }
-
-  /**
-   * 문서 재처리
-   */
-  async reprocessDocument(documentName: string) {
-    return this.apiCall(`/documents/${encodeURIComponent(documentName)}/reprocess`, {
-      method: 'POST',
-    });
-  }
-
-  /**
-   * 시스템 성능 분석
-   */
-  async getPerformanceAnalysis(query?: string) {
-    const endpoint = query ? `/performance-analysis?query=${encodeURIComponent(query)}` : '/performance-analysis';
-    return this.apiCall(endpoint);
-  }
-
-  /**
-   * 시스템 구성 조회
-   */
-  async getSystemConfig() {
-    return this.apiCall('/config');
-  }
-
-  /**
-   * RAG 시스템 테스트 (향상된 버전)
-   */
-  async testRAG(query: string) {
-    return this.apiCall('/test', {
-      method: 'POST',
-      body: JSON.stringify({ query }),
-    });
-  }
-
-  /**
-   * 전체 인덱스 재구축
-   */
-  async rebuildIndex() {
-    return this.apiCall('/system/rebuild-index', {
-      method: 'POST',
-    });
-  }
-
-  /**
-   * 로그 다운로드
-   */
-  async downloadLogs(startDate?: string, endDate?: string): Promise<Blob> {
-    const params = new URLSearchParams();
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    
-    const url = `${API_BASE_URL}/admin/system/download-logs?${params.toString()}`;
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    return response.blob();
-  }
-
-  /**
-   * 알림 이메일 발송
-   */
-  async sendAlertEmail(email: string, subject: string, message: string) {
-    return this.apiCall('/alerts/email', {
-      method: 'POST',
-      body: JSON.stringify({ email, subject, message }),
-    });
-  }
-
-  /**
-   * 특정 기간의 상세 분석 데이터 조회
-   */
-  async getDetailedAnalytics(startDate: string, endDate: string) {
-    return this.apiCall(`/analytics?startDate=${startDate}&endDate=${endDate}`);
-  }
-
-
-
-
-  /**
-   * 시스템 설정 업데이트
-   */
-  async updateSystemConfig(config: Record<string, unknown>) {
-    return this.apiCall('/config', {
-      method: 'PUT',
-      body: JSON.stringify(config),
-    });
-  }
-
-  /**
-   * 시스템 캐시 초기화 (메트릭 리셋)
+   * 시스템 캐시 클리어
    */
   async clearCache() {
-    // 실제 구현에서는 메트릭 리셋 API를 호출
-    return this.apiCall('/system/reset-metrics', {
-      method: 'POST',
-    });
+    return this.apiCall('/cache/clear', { method: 'POST' });
   }
 
   /**
-   * 백업 생성
+   * 데이터베이스 최적화
    */
-  async createBackup() {
-    return this.apiCall('/system/backup', {
-      method: 'POST',
-    });
-  }
-
-  /**
-   * 백업 복원
-   */
-  async restoreBackup(backupId: string) {
-    return this.apiCall(`/system/restore/${backupId}`, {
-      method: 'POST',
-    });
-  }
-
-  /**
-   * 에러 로그 조회
-   */
-  async getErrorLogs(limit: number = 50) {
-    return this.apiCall(`/logs/errors?limit=${limit}`);
-  }
-
-  /**
-   * 성능 메트릭 조회
-   */
-  async getPerformanceMetrics(period: string = '1d') {
-    return this.apiCall(`/metrics/performance?period=${period}`);
-  }
-
-  /**
-   * 사용량 통계 조회
-   */
-  async getUsageStats(period: string = '7d') {
-    return this.apiCall(`/stats/usage?period=${period}`);
-  }
-
-  /**
-   * A/B 테스트 결과 조회
-   */
-  async getABTestResults() {
-    return this.apiCall('/analytics/ab-test');
-  }
-
-  /**
-   * 실시간 모니터링 데이터 조회 (향상된 버전)
-   */
-  async getRealTimeMetrics() {
-    return this.apiCall('/realtime-metrics');
-  }
-
-  /**
-   * 사용자 피드백 조회
-   */
-  async getUserFeedback(limit: number = 100) {
-    return this.apiCall(`/feedback?limit=${limit}`);
-  }
-
-  /**
-   * 검색 품질 분석
-   */
-  async getSearchQualityAnalysis(period: string = '7d') {
-    return this.apiCall(`/analytics/search-quality?period=${period}`);
-  }
-
-  /**
-   * 모델 성능 비교
-   */
-  async getModelPerformanceComparison() {
-    return this.apiCall('/analytics/model-performance');
-  }
-
-  /**
-   * 비용 분석
-   */
-  async getCostAnalysis(period: string = '30d') {
-    return this.apiCall(`/analytics/costs?period=${period}`);
-  }
-
-  /**
-   * 보안 감사 로그 조회
-   */
-  async getSecurityAuditLogs(limit: number = 100) {
-    return this.apiCall(`/security/audit-logs?limit=${limit}`);
-  }
-
-  /**
-   * 데이터 무결성 검사
-   */
-  async checkDataIntegrity() {
-    return this.apiCall('/system/integrity-check', {
-      method: 'POST',
-    });
-  }
-
-  /**
-   * 자동 확장 설정 조회
-   */
-  async getAutoScalingConfig() {
-    return this.apiCall('/config/auto-scaling');
-  }
-
-  /**
-   * 자동 확장 설정 업데이트
-   */
-  async updateAutoScalingConfig(config: Record<string, unknown>) {
-    return this.apiCall('/config/auto-scaling', {
-      method: 'PUT',
-      body: JSON.stringify(config),
-    });
-  }
-
-  /**
-   * 헬스 체크 (간단한 ping)
-   */
-  async ping() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/health`);
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * 배치 작업 상태 조회
-   */
-  async getBatchJobStatus() {
-    return this.apiCall('/system/batch-jobs');
-  }
-
-  /**
-   * 배치 작업 시작
-   */
-  async startBatchJob(jobType: string, parameters: Record<string, unknown> = {}) {
-    return this.apiCall('/system/batch-jobs', {
-      method: 'POST',
-      body: JSON.stringify({ jobType, parameters }),
-    });
-  }
-
-  /**
-   * 배치 작업 취소
-   */
-  async cancelBatchJob(jobId: string) {
-    return this.apiCall(`/system/batch-jobs/${jobId}/cancel`, {
-      method: 'POST',
-    });
+  async optimizeDatabase() {
+    return this.apiCall('/database/optimize', { method: 'POST' });
   }
 }
 
-// 싱글톤 인스턴스 생성
+// 싱글톤 인스턴스 생성 및 내보내기
 export const adminService = new AdminService();
-
-// 타입 정의 export
-export interface SystemStatus {
-  timestamp: string;
-  services: {
-    qdrant: { status: string; message: string; responseTime?: string };
-    dynamodb: { status: string; message: string; responseTime?: string };
-    llm: { status: string; message: string; responseTime?: string };
-  };
-}
-
-export interface Metrics {
-  period: string;
-  totalSessions: number;
-  totalQueries: number;
-  avgResponseTime: number;
-  timeSeries: Array<{
-    date: string;
-    sessions: number;
-    queries: number;
-    avgResponseTime: number;
-  }>;
-}
-
-export interface ChatLog {
-  id: string;
-  chatId: string;
-  message: string;
-  timestamp: string;
-  responseTime: number;
-  source: string;
-  status: string;
-  keywords: string[];
-  country: string;
-}
-
-export interface Document {
-  name: string;
-  chunkCount: number;
-  size: string;
-  lastUpdate: string;
-}
+export default adminService;

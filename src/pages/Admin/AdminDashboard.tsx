@@ -303,12 +303,12 @@ const AdminDashboard: React.FC = () => {
       ] = await Promise.all([
         adminService.getSystemStatus(),
         adminService.getMetrics(period),
-        adminService.getKeywords(period),
-        adminService.getChunks(period),
-        adminService.getCountries(period),
+        adminService.getKeywordAnalysis(period),
+        adminService.getChunkAnalysis(period),
+        adminService.getCountryAnalysis(period),
         adminService.getRecentChats(20),
         adminService.getDocuments(),
-        adminService.getSessions('all', 50, 0),
+        adminService.getSessions({ status: 'all', limit: 50, offset: 0 }),
         adminService.getRealtimeMetrics()
       ]);
 
