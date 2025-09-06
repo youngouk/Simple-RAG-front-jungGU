@@ -36,8 +36,8 @@ import {
   Paper,
   Tabs,
   Tab,
-  Grid,
 } from '@mui/material';
+// Grid v2 타입 이슈를 피하기 위해 Box 기반 그리드 사용
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -83,6 +83,16 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+// 안전한 에러 메시지 추출 유틸리티
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null && 'response' in err) {
+    const response = (err as { response?: { data?: { detail?: string } } }).response;
+    const detail = response?.data?.detail;
+    if (typeof detail === 'string' && detail.trim()) return detail;
+  }
+  return fallback;
+}
+
 const PromptManager: React.FC = () => {
   // State 관리
   const [prompts, setPrompts] = useState<Prompt[]>([]);
@@ -114,11 +124,18 @@ const PromptManager: React.FC = () => {
   const loadPrompts = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await promptService.getPrompts({
-        category: categoryFilter !== 'all' ? categoryFilter : undefined,
-        is_active: activeFilter === 'active' ? true : activeFilter === 'inactive' ? false : undefined,
-        page_size: 100, // 모든 프롬프트 로드
-      });
+      const params: {
+        category?: string;
+        is_active?: boolean;
+        page?: number;
+        page_size?: number;
+        search?: string;
+      } = { page_size: 100 };
+      if (categoryFilter !== 'all') params.category = categoryFilter;
+      if (activeFilter === 'active') params.is_active = true;
+      else if (activeFilter === 'inactive') params.is_active = false;
+
+      const response = await promptService.getPrompts(params);
       
       // 활성 프롬프트 검증 및 자동 조정
       const loadedPrompts = response.prompts;
@@ -130,11 +147,17 @@ const PromptManager: React.FC = () => {
         if (systemPrompt) {
           await promptService.togglePrompt(systemPrompt.id, true);
           // 프롬프트 목록 다시 로드
-          const updatedResponse = await promptService.getPrompts({
-            category: categoryFilter !== 'all' ? categoryFilter : undefined,
-            is_active: activeFilter === 'active' ? true : activeFilter === 'inactive' ? false : undefined,
-            page_size: 100,
-          });
+          const reloadParams: {
+            category?: string;
+            is_active?: boolean;
+            page?: number;
+            page_size?: number;
+            search?: string;
+          } = { page_size: 100 };
+          if (categoryFilter !== 'all') reloadParams.category = categoryFilter;
+          if (activeFilter === 'active') reloadParams.is_active = true;
+          else if (activeFilter === 'inactive') reloadParams.is_active = false;
+          const updatedResponse = await promptService.getPrompts(reloadParams);
           setPrompts(updatedResponse.prompts);
         } else {
           setPrompts(loadedPrompts);
@@ -144,16 +167,22 @@ const PromptManager: React.FC = () => {
         console.warn(`여러 프롬프트가 활성화되어 있습니다. 첫 번째 프롬프트만 활성 상태로 유지합니다.`);
         
         // 첫 번째를 제외한 나머지 비활성화
-        for (let i = 1; i < activePrompts.length; i++) {
-          await promptService.togglePrompt(activePrompts[i].id, false);
+        for (const ap of activePrompts.slice(1)) {
+          await promptService.togglePrompt(ap.id, false);
         }
         
         // 프롬프트 목록 다시 로드
-        const updatedResponse = await promptService.getPrompts({
-          category: categoryFilter !== 'all' ? categoryFilter : undefined,
-          is_active: activeFilter === 'active' ? true : activeFilter === 'inactive' ? false : undefined,
-          page_size: 100,
-        });
+        const reloadParams2: {
+          category?: string;
+          is_active?: boolean;
+          page?: number;
+          page_size?: number;
+          search?: string;
+        } = { page_size: 100 };
+        if (categoryFilter !== 'all') reloadParams2.category = categoryFilter;
+        if (activeFilter === 'active') reloadParams2.is_active = true;
+        else if (activeFilter === 'inactive') reloadParams2.is_active = false;
+        const updatedResponse = await promptService.getPrompts(reloadParams2);
         setPrompts(updatedResponse.prompts);
       } else {
         // 정상적으로 1개만 활성화된 경우
@@ -199,7 +228,7 @@ const PromptManager: React.FC = () => {
       await loadPrompts();
     } catch (err: unknown) {
       console.error('프롬프트 저장 실패:', err);
-      setError(err.response?.data?.detail || '프롬프트 저장에 실패했습니다.');
+      setError(getErrorMessage(err, '프롬프트 저장에 실패했습니다.'));
     }
   };
 
@@ -214,7 +243,7 @@ const PromptManager: React.FC = () => {
       await loadPrompts();
     } catch (err: unknown) {
       console.error('프롬프트 삭제 실패:', err);
-      setError(err.response?.data?.detail || '프롬프트 삭제에 실패했습니다.');
+      setError(getErrorMessage(err, '프롬프트 삭제에 실패했습니다.'));
     }
   };
 
@@ -226,7 +255,7 @@ const PromptManager: React.FC = () => {
       await loadPrompts();
     } catch (err: unknown) {
       console.error('프롬프트 복제 실패:', err);
-      setError(err.response?.data?.detail || '프롬프트 복제에 실패했습니다.');
+      setError(getErrorMessage(err, '프롬프트 복제에 실패했습니다.'));
     }
   };
 
@@ -272,7 +301,7 @@ const PromptManager: React.FC = () => {
       await loadPrompts();
     } catch (err: unknown) {
       console.error('프롬프트 상태 변경 실패:', err);
-      setError(err.response?.data?.detail || '프롬프트 상태 변경에 실패했습니다.');
+      setError(getErrorMessage(err, '프롬프트 상태 변경에 실패했습니다.'));
     }
   };
 
@@ -309,7 +338,7 @@ const PromptManager: React.FC = () => {
       alert(`${result.imported}개의 프롬프트를 성공적으로 가져왔습니다.`);
     } catch (err: unknown) {
       console.error('프롬프트 가져오기 실패:', err);
-      setError(err.response?.data?.detail || '프롬프트 가져오기에 실패했습니다.');
+      setError(getErrorMessage(err, '프롬프트 가져오기에 실패했습니다.'));
     }
   };
 
@@ -329,14 +358,15 @@ const PromptManager: React.FC = () => {
   // 프롬프트 편집 다이얼로그 열기
   const handleEditPrompt = (prompt: Prompt) => {
     setSelectedPrompt(prompt);
-    setEditingPrompt({
+    const nextEditing: CreatePromptRequest | UpdatePromptRequest = {
       name: prompt.name,
       content: prompt.content,
       description: prompt.description,
       category: prompt.category,
       is_active: prompt.is_active,
-      metadata: prompt.metadata,
-    });
+      ...(prompt.metadata ? { metadata: prompt.metadata } : {}),
+    };
+    setEditingPrompt(nextEditing);
     setIsEditMode(true);
     setEditDialogOpen(true);
   };
@@ -430,8 +460,15 @@ const PromptManager: React.FC = () => {
       {/* 필터 및 검색 */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '4fr 3fr 3fr 2fr' },
+              gap: 2,
+              alignItems: 'center',
+            }}
+          >
+            <Box>
               <TextField
                 fullWidth
                 size="small"
@@ -440,8 +477,8 @@ const PromptManager: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-            </Grid>
-            <Grid item xs={12} md={3}>
+            </Box>
+            <Box>
               <FormControl fullWidth size="small">
                 <InputLabel>카테고리</InputLabel>
                 <Select
@@ -457,8 +494,8 @@ const PromptManager: React.FC = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
+            </Box>
+            <Box>
               <FormControl fullWidth size="small">
                 <InputLabel>상태</InputLabel>
                 <Select
@@ -471,15 +508,22 @@ const PromptManager: React.FC = () => {
                   <MenuItem value="inactive">비활성</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12} md={2}>
+            </Box>
+            <Box>
               <Typography variant="body2" color="text.secondary">
                 총 {filteredPrompts.length}개
               </Typography>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
+
+      {/* 주의문구 */}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <Typography variant="body2">
+          ⚠️ 프롬프트는 오직 1개만 적용가능합니다.
+        </Typography>
+      </Alert>
 
       {/* 탭 네비게이션 */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
