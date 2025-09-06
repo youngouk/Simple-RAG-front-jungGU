@@ -286,6 +286,9 @@ const AdminDashboard: React.FC = () => {
     severity: 'info' as 'success' | 'error' | 'warning' | 'info'
   });
 
+  // 기능 수정 중 팝업 상태
+  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+
   // 데이터 로딩 함수들
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
@@ -372,6 +375,17 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     loadDashboardData();
   }, [period, loadDashboardData]);
+
+  // 컴포넌트 마운트 시 기능 수정 중 팝업 표시
+  useEffect(() => {
+    setMaintenanceDialogOpen(true);
+  }, []);
+
+  // 개발자 도구로 돌아가기
+  const handleBackToDeveloperTools = () => {
+    setMaintenanceDialogOpen(false);
+    window.location.href = '/';
+  };
 
   // 테스트 실행
   const handleTest = async () => {
@@ -1297,6 +1311,58 @@ const AdminDashboard: React.FC = () => {
               </Button>
             </>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* 기능 수정 중 팝업 */}
+      <Dialog 
+        open={maintenanceDialogOpen}
+        maxWidth="sm"
+        fullWidth
+        disableEscapeKeyDown
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: 2,
+            boxShadow: '0 8px 40px rgba(0, 0, 0, 0.12)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          textAlign: 'center', 
+          pb: 1,
+          color: '#742DDD',
+          fontWeight: 600
+        }}>
+          🔧 기능 수정 중입니다
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', py: 3 }}>
+          <Typography variant="body1" sx={{ mb: 2, color: 'text.secondary' }}>
+            관리자 대시보드 기능을 개선 중입니다.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            더 나은 서비스를 위해 잠시 기다려 주세요.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+          <Button 
+            onClick={handleBackToDeveloperTools}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, #742DDD 0%, #6210CC 100%)',
+              borderRadius: 2,
+              px: 4,
+              py: 1.5,
+              fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(116, 45, 221, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 20px rgba(116, 45, 221, 0.4)',
+                transform: 'translateY(-1px)'
+              },
+              transition: 'all 0.2s ease'
+            }}
+          >
+            개발자 도구로 돌아가기
+          </Button>
         </DialogActions>
       </Dialog>
 
