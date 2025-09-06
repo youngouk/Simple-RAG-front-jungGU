@@ -41,7 +41,6 @@ import {
   Computer,
   Dns,
 } from '@mui/icons-material';
-import { adminService } from '../services/adminService';
 import { healthAPI, statsAPI } from '../services/api';
 
 // 타입 정의
@@ -162,16 +161,6 @@ export const StatsTab: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchSystemStats]);
 
-  const formatUptime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}시간 ${minutes}분`;
-  };
-
-  const formatBytes = (bytes: number) => {
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(1)} MB`;
-  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
