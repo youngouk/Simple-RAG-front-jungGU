@@ -803,7 +803,7 @@ const PromptTable: React.FC<PromptTableProps> = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {prompts.map((prompt, index) => (
+          {prompts.map((prompt) => (
             <TableRow 
               key={prompt.id}
               sx={{
