@@ -42,28 +42,50 @@ import {
   Dns,
 } from '@mui/icons-material';
 import { adminService } from '../services/adminService';
+import { healthAPI, statsAPI } from '../services/api';
 
 // 타입 정의
-interface SystemStatus {
+interface HealthStatus {
   status: string;
+  timestamp: string;
   uptime: number;
-  modules: {
-    session: { status: string };
-    document_processor: { status: string };
-    retrieval: { status: string };
-    generation: { status: string };
-  };
+  version: string;
+  environment: string;
+}
+
+interface StatsData {
+  uptime: number;
+  uptime_human: string;
+  cpu_percent: number;
   memory_usage: {
-    rss: number;
-    heap_used: number;
-    heap_total: number;
-    external: number;
+    total: number;
+    available: number;
+    used: number;
+    percentage: number;
+    total_gb: number;
+    used_gb: number;
+    available_gb: number;
   };
-  performance?: {
-    avg_response_time: number;
-    total_requests: number;
-    active_sessions: number;
+  disk_usage: {
+    total: number;
+    used: number;
+    free: number;
+    percentage: number;
+    total_gb: number;
+    used_gb: number;
+    free_gb: number;
   };
+  system_info: {
+    platform: string;
+    python_version: string;
+    cpu_count: number;
+    boot_time: string;
+  };
+}
+
+interface CombinedStatus {
+  health: HealthStatus;
+  stats: StatsData;
 }
 
 interface ApiCallLog {
@@ -75,7 +97,7 @@ interface ApiCallLog {
 }
 
 export const StatsTab: React.FC = () => {
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [systemStatus, setSystemStatus] = useState<CombinedStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [apiCalls, setApiCalls] = useState<Record<string, ApiCallLog>>({});
@@ -105,17 +127,27 @@ export const StatsTab: React.FC = () => {
     try {
       console.log('🔄 시스템 통계 데이터 로딩 중...');
       
-      // 시스템 상태 조회
-      const statusData = await adminService.getSystemStatus();
-      logApiCall('/api/admin/status', statusData);
-      setSystemStatus(statusData);
+      // Health 상태와 Stats 데이터 동시 조회
+      const [healthResponse, statsResponse] = await Promise.all([
+        healthAPI.check(),
+        statsAPI.getStats()
+      ]);
+      
+      const combinedData = {
+        health: healthResponse.data,
+        stats: statsResponse.data
+      };
+      
+      logApiCall('/health', healthResponse.data);
+      logApiCall('/stats', statsResponse.data);
+      setSystemStatus(combinedData);
       
       console.log('✅ 시스템 상태 데이터 로드 완료:', statusData);
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
       console.error('❌ 통계 데이터 로딩 실패:', err);
-      logApiCall('/api/admin/status', null, err instanceof Error ? err : new Error(String(err)));
+      logApiCall('/stats', null, err instanceof Error ? err : new Error(String(err)));
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -273,11 +305,11 @@ export const StatsTab: React.FC = () => {
                       </Typography>
                       <Box display="flex" alignItems="center" gap={1}>
                         <Typography variant="h5" fontWeight="600">
-                          {systemStatus.status}
+                          {systemStatus.health.status}
                         </Typography>
                         <Chip 
-                          label={systemStatus.status}
-                          color={getStatusColor(systemStatus.status)}
+                          label={systemStatus.health.status}
+                          color={getStatusColor(systemStatus.health.status)}
                           size="small"
                         />
                       </Box>
@@ -318,7 +350,7 @@ export const StatsTab: React.FC = () => {
                         가동시간
                       </Typography>
                       <Typography variant="h5" fontWeight="600">
-                        {formatUptime(systemStatus.uptime)}
+                        {systemStatus.stats.uptime_human}
                       </Typography>
                     </Box>
                   </Box>
@@ -357,10 +389,10 @@ export const StatsTab: React.FC = () => {
                         메모리 사용량
                       </Typography>
                       <Typography variant="h5" fontWeight="600">
-                        {formatBytes(systemStatus.memory_usage.rss)}
+                        {systemStatus.stats.memory_usage.used_gb.toFixed(1)} GB
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Heap: {formatBytes(systemStatus.memory_usage.heap_used)}
+                        사용률: {systemStatus.stats.memory_usage.percentage.toFixed(1)}%
                       </Typography>
                     </Box>
                   </Box>
@@ -388,24 +420,21 @@ export const StatsTab: React.FC = () => {
                       sx={{
                         p: 2,
                         borderRadius: 2,
-                        bgcolor: systemStatus.performance ? 'success.light' : 'grey.300',
-                        color: systemStatus.performance ? 'success.dark' : 'grey.600'
+                        bgcolor: 'primary.light',
+                        color: 'primary.dark'
                       }}
                     >
                       <Speed fontSize="large" />
                     </Box>
                     <Box>
                       <Typography color="text.secondary" variant="body2">
-                        {systemStatus.performance ? '활성 세션' : '성능 데이터'}
+                        CPU 사용률
                       </Typography>
                       <Typography variant="h5" fontWeight="600">
-                        {systemStatus.performance?.active_sessions ?? 'N/A'}
+                        {systemStatus.stats.cpu_percent.toFixed(1)}%
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {systemStatus.performance 
-                          ? `총 요청: ${systemStatus.performance.total_requests?.toLocaleString() ?? 0}`
-                          : '데이터 수집 중...'
-                        }
+                        코어: {systemStatus.stats.system_info.cpu_count}개
                       </Typography>
                     </Box>
                   </Box>
@@ -414,7 +443,7 @@ export const StatsTab: React.FC = () => {
             </Grid>
           </Grid>
 
-          {/* 모듈 상태 */}
+          {/* 시스템 정보 */}
           <Paper 
             elevation={0} 
             sx={{ 
@@ -427,90 +456,104 @@ export const StatsTab: React.FC = () => {
           >
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Computer color="primary" />
-              모듈 상태
+              시스템 정보
             </Typography>
             <Divider sx={{ mb: 2 }} />
             
-            <Grid container spacing={2}>
-              {Object.entries(systemStatus.modules).map(([module, info]) => (
-                <Grid item xs={12} sm={6} md={3} key={module}>
-                  <Box
-                    sx={{
-                      p: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      bgcolor: 'background.paper',
-                      textAlign: 'center'
-                    }}
-                  >
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {module.replace('_', ' ').toUpperCase()}
-                    </Typography>
-                    <Chip 
-                      label={info.status}
-                      color={getStatusColor(info.status)}
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Box>
-                </Grid>
-              ))}
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={3}>
+                <Box textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    플랫폼
+                  </Typography>
+                  <Typography variant="h6" fontWeight="600">
+                    {systemStatus.stats.system_info.platform}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Box textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    Python 버전
+                  </Typography>
+                  <Typography variant="h6" fontWeight="600">
+                    {systemStatus.stats.system_info.python_version}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Box textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    환경
+                  </Typography>
+                  <Typography variant="h6" fontWeight="600">
+                    {systemStatus.health.environment}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Box textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    버전
+                  </Typography>
+                  <Typography variant="h6" fontWeight="600">
+                    {systemStatus.health.version}
+                  </Typography>
+                </Box>
+              </Grid>
             </Grid>
           </Paper>
 
-          {/* 성능 메트릭 */}
-          {systemStatus.performance && (
-            <Paper 
-              elevation={0} 
-              sx={{ 
-                p: 3, 
-                mb: 4, 
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 3
-              }}
-            >
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Timeline color="primary" />
-                성능 메트릭
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <Box textAlign="center">
-                    <Typography variant="body2" color="text.secondary">
-                      평균 응답시간
-                    </Typography>
-                    <Typography variant="h4" color="primary" fontWeight="600">
-                      {systemStatus.performance.avg_response_time?.toFixed(0) ?? 0}ms
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Box textAlign="center">
-                    <Typography variant="body2" color="text.secondary">
-                      총 요청 수
-                    </Typography>
-                    <Typography variant="h4" color="success.main" fontWeight="600">
-                      {systemStatus.performance.total_requests?.toLocaleString() ?? '0'}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Box textAlign="center">
-                    <Typography variant="body2" color="text.secondary">
-                      활성 세션
-                    </Typography>
-                    <Typography variant="h4" color="info.main" fontWeight="600">
-                      {systemStatus.performance.active_sessions ?? 0}
-                    </Typography>
-                  </Box>
-                </Grid>
+          {/* 디스크 사용량 */}
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              p: 3, 
+              mb: 4, 
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 3
+            }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Timeline color="primary" />
+              디스크 사용량
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Box textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    전체 용량
+                  </Typography>
+                  <Typography variant="h4" color="primary" fontWeight="600">
+                    {systemStatus.stats.disk_usage.total_gb.toFixed(0)} GB
+                  </Typography>
+                </Box>
               </Grid>
-            </Paper>
-          )}
+              <Grid item xs={12} md={4}>
+                <Box textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    사용된 용량
+                  </Typography>
+                  <Typography variant="h4" color="warning.main" fontWeight="600">
+                    {systemStatus.stats.disk_usage.used_gb.toFixed(0)} GB
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Box textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    사용률
+                  </Typography>
+                  <Typography variant="h4" color="info.main" fontWeight="600">
+                    {systemStatus.stats.disk_usage.percentage.toFixed(1)}%
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
         </>
       )}
 

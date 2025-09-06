@@ -52,6 +52,7 @@ import {
   ArrowDownward,
   ViewList,
   ViewModule,
+  Warning,
 } from '@mui/icons-material';
 import { Document, ToastMessage } from '../types';
 import { documentAPI } from '../services/api';
@@ -71,9 +72,13 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
+  const [deleteAllStep, setDeleteAllStep] = useState<'confirm' | 'typing'>("confirm");
+  const [deleteAllTyping, setDeleteAllTyping] = useState('');
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   
   // 정렬 및 뷰 상태
   const [sortField, setSortField] = useState<'filename' | 'size' | 'uploadedAt' | 'type'>('uploadedAt');
@@ -89,6 +94,13 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
   // 벌크 삭제 취소 핸들러
   const handleBulkDeleteCancel = useCallback(() => {
     setBulkDeleteConfirmOpen(false);
+  }, []);
+
+  // 전체 삭제 취소 핸들러
+  const handleDeleteAllCancel = useCallback(() => {
+    setDeleteAllConfirmOpen(false);
+    setDeleteAllStep('confirm');
+    setDeleteAllTyping('');
   }, []);
 
   const pageSize = 50;
@@ -277,6 +289,47 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
     }
   }, [selectedDocuments, showToast, fetchDocuments]);
 
+  // 전체 문서 삭제
+  const handleDeleteAll = useCallback(async () => {
+    if (deleteAllStep === 'confirm') {
+      setDeleteAllStep('typing');
+      return;
+    }
+
+    if (deleteAllTyping !== '문서 삭제에 동의합니다.') {
+      showToast({
+        type: 'error',
+        message: '정확한 문구를 입력해주세요: "문서 삭제에 동의합니다."',
+      });
+      return;
+    }
+
+    setDeleteAllLoading(true);
+    try {
+      await documentAPI.deleteAllDocuments(
+        'DELETE_ALL_DOCUMENTS', 
+        '사용자 요청에 의한 전체 문서 삭제',
+        false
+      );
+      showToast({
+        type: 'success',
+        message: '모든 문서가 성공적으로 삭제되었습니다.',
+      });
+      setSelectedDocuments(new Set());
+      await fetchDocuments();
+      handleDeleteAllCancel();
+    } catch (error: unknown) {
+      console.error('Delete all documents error:', error);
+      const apiError = error as { response?: { data?: { message?: string } } };
+      showToast({
+        type: 'error',
+        message: apiError.response?.data?.message || '전체 문서 삭제에 실패했습니다.',
+      });
+    } finally {
+      setDeleteAllLoading(false);
+    }
+  }, [deleteAllStep, deleteAllTyping, showToast, fetchDocuments, handleDeleteAllCancel]);
+
   // 문서 다운로드
   const handleDownload = async (document: Document) => {
     try {
@@ -399,6 +452,15 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
                 disabled={selectedDocuments.size === 0}
               >
                 선택 삭제 ({selectedDocuments.size})
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<Warning />}
+                onClick={() => setDeleteAllConfirmOpen(true)}
+                sx={{ minWidth: '120px' }}
+              >
+                모든 문서 삭제
               </Button>
               <IconButton onClick={fetchDocuments} color="primary">
                 <Refresh />
@@ -755,6 +817,94 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ showToast }) => {
           >
             {bulkDeleteLoading ? '삭제 중...' : `삭제 (${selectedDocuments.size}개)`}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 전체 문서 삭제 확인 다이얼로그 */}
+      <Dialog 
+        open={deleteAllConfirmOpen} 
+        onClose={!deleteAllLoading ? handleDeleteAllCancel : undefined}
+        disableEscapeKeyDown={deleteAllLoading}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+          <Warning />
+          전체 문서 삭제 확인
+        </DialogTitle>
+        <DialogContent>
+          {deleteAllStep === 'confirm' ? (
+            <Typography>
+              ⚠️ <strong>DB에 등록한 문서가 모두 삭제 됩니다.</strong>
+              <br />
+              <br />
+              이 작업은 되돌릴 수 없으며, Qdrant DB의 모든 문서와 벡터가 완전히 삭제됩니다.
+              <br />
+              <br />
+              계속하시겠습니까?
+            </Typography>
+          ) : (
+            <Box>
+              <Typography gutterBottom>
+                삭제를 확인하려면 아래 문구를 정확히 입력해주세요:
+              </Typography>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  p: 1, 
+                  bgcolor: 'grey.100', 
+                  fontFamily: 'monospace', 
+                  borderRadius: 1,
+                  mb: 2
+                }}
+              >
+                문서 삭제에 동의합니다.
+              </Typography>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="위 문구를 정확히 입력하세요"
+                value={deleteAllTyping}
+                onChange={(e) => setDeleteAllTyping(e.target.value)}
+                disabled={deleteAllLoading}
+                error={deleteAllTyping.length > 0 && deleteAllTyping !== '문서 삭제에 동의합니다.'}
+                helperText={
+                  deleteAllTyping.length > 0 && deleteAllTyping !== '문서 삭제에 동의합니다.' 
+                    ? '정확한 문구를 입력해주세요' 
+                    : ''
+                }
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={handleDeleteAllCancel}
+            color="inherit"
+            disabled={deleteAllLoading}
+          >
+            취소
+          </Button>
+          {deleteAllStep === 'confirm' ? (
+            <Button 
+              onClick={handleDeleteAll} 
+              color="error" 
+              variant="contained"
+              disabled={deleteAllLoading}
+            >
+              다음 단계
+            </Button>
+          ) : (
+            <Button 
+              onClick={handleDeleteAll} 
+              color="error" 
+              variant="contained"
+              disabled={deleteAllTyping !== '문서 삭제에 동의합니다.' || deleteAllLoading}
+              startIcon={deleteAllLoading ? <CircularProgress size={16} /> : null}
+            >
+              {deleteAllLoading ? '삭제 중...' : '모든 문서 삭제'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

@@ -259,6 +259,13 @@ export const documentAPI = {
   deleteDocuments: (ids: string[]) => 
     api.post('/api/upload/documents/bulk-delete', { ids }),
 
+  // 전체 문서 삭제
+  deleteAllDocuments: (confirmCode: string, reason: string, dryRun?: boolean) => 
+    api.delete('/api/documents/all', { 
+      params: { dry_run: dryRun || false },
+      data: { confirm_code: confirmCode, reason }
+    }),
+
   // 문서 다운로드
   downloadDocument: (id: string) => 
     api.get(`/api/upload/documents/${id}/download`, {
