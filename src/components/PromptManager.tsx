@@ -353,12 +353,21 @@ const PromptManager: React.FC = () => {
     setDeleteDialogOpen(true);
   };
 
-  // 필터링된 프롬프트 목록
-  const filteredPrompts = prompts.filter((prompt) => {
-    const matchesSearch = prompt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         prompt.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  // 필터링된 프롬프트 목록 (활성 프롬프트를 상단에 정렬)
+  const filteredPrompts = prompts
+    .filter((prompt) => {
+      const matchesSearch = prompt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           prompt.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      // 활성화된 프롬프트를 맨 위로
+      if (a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1;
+      }
+      // 같은 활성화 상태면 이름순 정렬
+      return a.name.localeCompare(b.name);
+    });
 
   // 카테고리별 프롬프트 분류
   const promptsByCategory = {
@@ -759,6 +768,17 @@ const PromptTable: React.FC<PromptTableProps> = ({
   onDuplicate,
   onToggleActive,
 }) => {
+  const [isAnimating, setIsAnimating] = React.useState<string | null>(null);
+
+  const handleToggleWithAnimation = React.useCallback((prompt: Prompt) => {
+    if (!prompt.is_active) {
+      // 활성화할 때만 애니메이션 트리거
+      setIsAnimating(prompt.id);
+      setTimeout(() => setIsAnimating(null), 600);
+    }
+    onToggleActive(prompt);
+  }, [onToggleActive]);
+
   if (prompts.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -783,12 +803,65 @@ const PromptTable: React.FC<PromptTableProps> = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {prompts.map((prompt) => (
-            <TableRow key={prompt.id}>
+          {prompts.map((prompt, index) => (
+            <TableRow 
+              key={prompt.id}
+              sx={{
+                transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                transform: isAnimating === prompt.id ? 'translateY(-10px)' : 'translateY(0)',
+                opacity: isAnimating === prompt.id ? 0.8 : 1,
+                backgroundColor: prompt.is_active 
+                  ? 'rgba(25, 118, 210, 0.08)' 
+                  : 'transparent',
+                borderLeft: prompt.is_active 
+                  ? '4px solid #1976d2' 
+                  : '4px solid transparent',
+                '&:hover': {
+                  backgroundColor: prompt.is_active 
+                    ? 'rgba(25, 118, 210, 0.12)' 
+                    : 'rgba(0, 0, 0, 0.04)',
+                },
+                position: 'relative',
+                zIndex: isAnimating === prompt.id ? 10 : 'auto',
+                boxShadow: isAnimating === prompt.id 
+                  ? '0 4px 20px rgba(25, 118, 210, 0.3)' 
+                  : 'none',
+              }}
+            >
               <TableCell>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {prompt.name}
-                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  transition: 'all 0.3s ease',
+                }}>
+                  <Typography 
+                    variant="subtitle2" 
+                    sx={{ 
+                      fontWeight: prompt.is_active ? 700 : 600,
+                      color: prompt.is_active ? '#1976d2' : 'inherit',
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    {prompt.name}
+                  </Typography>
+                  {prompt.is_active && (
+                    <Chip 
+                      label="활성" 
+                      size="small" 
+                      color="primary" 
+                      sx={{ 
+                        height: 20, 
+                        fontSize: '0.7rem',
+                        animation: 'pulse 2s ease-in-out infinite',
+                        '@keyframes pulse': {
+                          '0%, 100%': { opacity: 1 },
+                          '50%': { opacity: 0.7 },
+                        },
+                      }} 
+                    />
+                  )}
+                </Box>
               </TableCell>
               <TableCell>
                 <Typography variant="body2" sx={{ maxWidth: 300 }}>
@@ -805,8 +878,20 @@ const PromptTable: React.FC<PromptTableProps> = ({
               <TableCell>
                 <Switch
                   checked={prompt.is_active}
-                  onChange={() => onToggleActive(prompt)}
+                  onChange={() => handleToggleWithAnimation(prompt)}
                   size="small"
+                  sx={{
+                    '& .MuiSwitch-switchBase': {
+                      transition: 'all 0.3s ease',
+                    },
+                    '& .MuiSwitch-switchBase.Mui-checked': {
+                      color: '#1976d2',
+                    },
+                    '& .MuiSwitch-track': {
+                      transition: 'all 0.3s ease',
+                      backgroundColor: prompt.is_active ? '#1976d2' : undefined,
+                    },
+                  }}
                 />
               </TableCell>
               <TableCell>
