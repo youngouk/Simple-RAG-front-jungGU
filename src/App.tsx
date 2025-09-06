@@ -22,6 +22,7 @@ import {
   Description,
   Chat,
   BarChart,
+  Psychology as PromptIcon,
   Brightness4,
   Brightness7,
   Dashboard as DashboardIcon,
@@ -30,6 +31,7 @@ import { UploadTab } from './components/UploadTab';
 import { DocumentsTab } from './components/DocumentsTab';
 import { ChatTab } from './components/ChatTab';
 import { StatsTab } from './components/StatsTab';
+import PromptManager from './components/PromptManager';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import { healthAPI } from './services/api';
@@ -389,6 +391,7 @@ function LegacyApp() {
               <Tab icon={<CloudUpload sx={{ fontSize: '20px' }} />} label="문서 업로드" iconPosition="start" />
               <Tab icon={<Description sx={{ fontSize: '20px' }} />} label="문서 관리" iconPosition="start" />
               <Tab icon={<Chat sx={{ fontSize: '20px' }} />} label="챗봇 테스트" iconPosition="start" />
+              <Tab icon={<PromptIcon sx={{ fontSize: '20px' }} />} label="프롬프트" iconPosition="start" />
               <Tab icon={<BarChart sx={{ fontSize: '20px' }} />} label="통계" iconPosition="start" />
             </Tabs>
           </Box>
@@ -409,6 +412,11 @@ function LegacyApp() {
             </ErrorBoundary>
           </TabPanel>
           <TabPanel value={activeTab} index={3}>
+            <ErrorBoundary>
+              <PromptManager />
+            </ErrorBoundary>
+          </TabPanel>
+          <TabPanel value={activeTab} index={4}>
             <ErrorBoundary>
               <StatsTab />
             </ErrorBoundary>
