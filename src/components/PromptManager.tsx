@@ -119,7 +119,47 @@ const PromptManager: React.FC = () => {
         is_active: activeFilter === 'active' ? true : activeFilter === 'inactive' ? false : undefined,
         page_size: 100, // 모든 프롬프트 로드
       });
-      setPrompts(response.prompts);
+      
+      // 활성 프롬프트 검증 및 자동 조정
+      const loadedPrompts = response.prompts;
+      const activePrompts = loadedPrompts.filter(p => p.is_active);
+      
+      if (activePrompts.length === 0) {
+        // 활성 프롬프트가 없는 경우: 시스템 프롬프트 자동 활성화
+        const systemPrompt = loadedPrompts.find(p => p.category === 'system' && p.name === 'system');
+        if (systemPrompt) {
+          await promptService.togglePrompt(systemPrompt.id, true);
+          // 프롬프트 목록 다시 로드
+          const updatedResponse = await promptService.getPrompts({
+            category: categoryFilter !== 'all' ? categoryFilter : undefined,
+            is_active: activeFilter === 'active' ? true : activeFilter === 'inactive' ? false : undefined,
+            page_size: 100,
+          });
+          setPrompts(updatedResponse.prompts);
+        } else {
+          setPrompts(loadedPrompts);
+        }
+      } else if (activePrompts.length > 1) {
+        // 활성 프롬프트가 여러 개인 경우: 첫 번째 것만 남기고 나머지 비활성화
+        console.warn(`여러 프롬프트가 활성화되어 있습니다. 첫 번째 프롬프트만 활성 상태로 유지합니다.`);
+        
+        // 첫 번째를 제외한 나머지 비활성화
+        for (let i = 1; i < activePrompts.length; i++) {
+          await promptService.togglePrompt(activePrompts[i].id, false);
+        }
+        
+        // 프롬프트 목록 다시 로드
+        const updatedResponse = await promptService.getPrompts({
+          category: categoryFilter !== 'all' ? categoryFilter : undefined,
+          is_active: activeFilter === 'active' ? true : activeFilter === 'inactive' ? false : undefined,
+          page_size: 100,
+        });
+        setPrompts(updatedResponse.prompts);
+      } else {
+        // 정상적으로 1개만 활성화된 경우
+        setPrompts(loadedPrompts);
+      }
+      
       setError(null);
     } catch (err) {
       console.error('프롬프트 로딩 실패:', err);
@@ -190,10 +230,45 @@ const PromptManager: React.FC = () => {
     }
   };
 
-  // 프롬프트 활성화/비활성화
+  // 프롬프트 활성화/비활성화 (단일 선택 방식)
   const handleToggleActive = async (prompt: Prompt) => {
     try {
-      await promptService.togglePrompt(prompt.id, !prompt.is_active);
+      if (!prompt.is_active) {
+        // 활성화하려는 경우: 다른 모든 프롬프트를 비활성화하고 현재 프롬프트만 활성화
+        const activePrompts = prompts.filter(p => p.is_active);
+        
+        // 다른 활성 프롬프트들을 모두 비활성화
+        for (const activePrompt of activePrompts) {
+          await promptService.togglePrompt(activePrompt.id, false);
+        }
+        
+        // 현재 프롬프트 활성화
+        await promptService.togglePrompt(prompt.id, true);
+      } else {
+        // 비활성화하려는 경우
+        const activeCount = prompts.filter(p => p.is_active).length;
+        
+        if (activeCount === 1) {
+          // 마지막 활성 프롬프트를 비활성화하려는 경우
+          // 시스템 프롬프트를 자동으로 활성화
+          const systemPrompt = prompts.find(p => p.category === 'system' && p.name === 'system');
+          
+          if (systemPrompt && systemPrompt.id !== prompt.id) {
+            // 현재 프롬프트를 비활성화하고 시스템 프롬프트를 활성화
+            await promptService.togglePrompt(prompt.id, false);
+            await promptService.togglePrompt(systemPrompt.id, true);
+          } else {
+            // 시스템 프롬프트가 없거나, 현재 프롬프트가 시스템 프롬프트인 경우
+            // 비활성화를 막고 경고 메시지 표시
+            setError('최소 하나의 프롬프트는 활성화되어 있어야 합니다.');
+            return;
+          }
+        } else {
+          // 다른 활성 프롬프트가 있는 경우 단순히 비활성화
+          await promptService.togglePrompt(prompt.id, false);
+        }
+      }
+      
       await loadPrompts();
     } catch (err: unknown) {
       console.error('프롬프트 상태 변경 실패:', err);
