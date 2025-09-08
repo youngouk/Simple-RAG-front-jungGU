@@ -890,9 +890,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
           {/* 채팅 메시지 영역 */}
           <Box sx={{ 
-            flexGrow: 1, 
+            flexGrow: 1,
             minHeight: '500px', // 최소 높이 설정
-            maxHeight: '650px', // 최대 높이를 400px에서 650px로 증가
+            maxHeight: '800px', // 최대 높이 800px로 설정
             overflow: 'auto', 
             p: 3,
             bgcolor: 'background.default',
