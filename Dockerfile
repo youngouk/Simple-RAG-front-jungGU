@@ -25,6 +25,13 @@ COPY . .
 # TypeScript 및 ESLint 검사 (빌드 시 오류 조기 발견)
 RUN npm run lint
 
+# Railway 환경변수를 Docker 빌드에 전달
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
+# 환경변수 확인 (디버깅용)
+RUN echo "Building with VITE_API_BASE_URL: $VITE_API_BASE_URL"
+
 # 프로덕션 빌드
 RUN npm run build
 
