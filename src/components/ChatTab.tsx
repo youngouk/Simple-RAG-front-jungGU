@@ -146,17 +146,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
     return false; // 동기화 불필요
   }, [sessionId, showToast]);
 
-  // 🛡️ 세션 유효성 검증 함수
-  const validateSession = useCallback(async (currentSessionId: string): Promise<string | null> => {
-    try {
-      // 간단한 유효성 검증: 채팅 기록 조회 시도
-      await chatAPI.getChatHistory(currentSessionId);
-      return currentSessionId;
-    } catch (error) {
-      console.warn('세션 유효성 검증 실패:', error);
-      return null;
-    }
-  }, []);
 
   // 세션 초기화 함수 - useEffect보다 먼저 정의
   const initializeSession = useCallback(async () => {
@@ -221,7 +210,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
       console.log('🆘 Fallback 세션 ID 생성:', fallbackSessionId);
       synchronizeSessionId(fallbackSessionId, '세션 초기화 실패 복구');
     }
-  }, [showToast]);
+  }, [showToast, synchronizeSessionId]);
 
   // 세션 초기화
   useEffect(() => {
