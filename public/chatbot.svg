@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <style>
+      .chatbot-body { fill: #4F46E5; }
+      .chatbot-screen { fill: #1E293B; }
+      .chatbot-eyes { fill: #10B981; }
+      .chatbot-mouth { fill: #F59E0B; }
+      .chatbot-antenna { fill: #EF4444; }
+    </style>
+  </defs>
+  
+  <!-- 몸체 -->
+  <rect x="6" y="8" width="20" height="18" rx="4" class="chatbot-body"/>
+  
+  <!-- 화면 -->
+  <rect x="9" y="11" width="14" height="8" rx="1" class="chatbot-screen"/>
+  
+  <!-- 눈 -->
+  <circle cx="13" cy="14" r="1.5" class="chatbot-eyes"/>
+  <circle cx="19" cy="14" r="1.5" class="chatbot-eyes"/>
+  
+  <!-- 입 -->
+  <path d="M14 16.5 Q16 18 18 16.5" stroke="#F59E0B" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  
+  <!-- 안테나 -->
+  <line x1="16" y1="8" x2="16" y2="5" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="16" cy="4" r="1.5" class="chatbot-antenna"/>
+  
+  <!-- 팔 -->
+  <rect x="3" y="14" width="3" height="6" rx="1.5" class="chatbot-body"/>
+  <rect x="26" y="14" width="3" height="6" rx="1.5" class="chatbot-body"/>
+  
+  <!-- 다리 -->
+  <rect x="10" y="26" width="3" height="4" rx="1.5" class="chatbot-body"/>
+  <rect x="19" y="26" width="3" height="4" rx="1.5" class="chatbot-body"/>
+</svg>
