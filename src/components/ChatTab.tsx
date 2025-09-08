@@ -121,31 +121,93 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
     }
   }, []);
 
+  // 🔧 세션 동기화 유틸리티 함수
+  const synchronizeSessionId = useCallback((newSessionId: string, context: string = '') => {
+    if (newSessionId && newSessionId !== sessionId) {
+      console.log(`🔄 세션 동기화 (${context}):`, {
+        from: sessionId,
+        to: newSessionId,
+        context
+      });
+      
+      setSessionId(newSessionId);
+      localStorage.setItem('chatSessionId', newSessionId);
+      
+      // 동기화 알림은 중요한 경우에만 표시
+      if (context.includes('불일치') || context.includes('복구')) {
+        showToast({
+          type: 'info',
+          message: `세션이 동기화되었습니다. (${context})`,
+        });
+      }
+      
+      return true; // 동기화 발생
+    }
+    return false; // 동기화 불필요
+  }, [sessionId, showToast]);
+
+  // 🛡️ 세션 유효성 검증 함수
+  const validateSession = useCallback(async (currentSessionId: string): Promise<string | null> => {
+    try {
+      // 간단한 유효성 검증: 채팅 기록 조회 시도
+      await chatAPI.getChatHistory(currentSessionId);
+      return currentSessionId;
+    } catch (error) {
+      console.warn('세션 유효성 검증 실패:', error);
+      return null;
+    }
+  }, []);
+
   // 세션 초기화 함수 - useEffect보다 먼저 정의
   const initializeSession = useCallback(async () => {
     try {
       const storedSessionId = localStorage.getItem('chatSessionId');
       if (storedSessionId) {
+        console.log('🔄 저장된 세션 ID로 초기화:', storedSessionId);
         setSessionId(storedSessionId);
+        
         // 기존 채팅 기록 로드
         try {
           const response = await chatAPI.getChatHistory(storedSessionId);
+          
+          // 📍 채팅 기록 로드 시에도 세션 ID 동기화 확인
+          if (response.data.messages.length > 0) {
+            const lastMessage = response.data.messages[response.data.messages.length - 1];
+            const historySessionId = lastMessage.session_id;
+            
+            synchronizeSessionId(historySessionId, '기록 로드 시 불일치');
+          }
+          
           setMessages(response.data.messages.map((msg, index) => ({
             id: index.toString(),
             role: index % 2 === 0 ? 'user' : 'assistant',
-            content: msg.response,
+            content: msg.response || msg.answer,
             timestamp: new Date().toISOString(),
             sources: msg.sources,
           })));
         } catch (historyError) {
           console.warn('채팅 기록을 불러올 수 없습니다:', historyError);
-          // 기록을 불러올 수 없어도 세션은 유지
+          // 기록을 불러올 수 없으면 세션 유효성 검증
+          console.log('📝 세션 유효성 검증을 위해 새 세션 생성');
+          
+          const newSessionResponse = await chatAPI.startNewSession();
+          const validSessionId = newSessionResponse.data.session_id;
+          setSessionId(validSessionId);
+          localStorage.setItem('chatSessionId', validSessionId);
+          
+          showToast({
+            type: 'info',
+            message: '새로운 세션으로 시작합니다.',
+          });
         }
       } else {
+        console.log('🆕 새 세션 생성');
         const response = await chatAPI.startNewSession();
         const newSessionId = response.data.session_id;
         setSessionId(newSessionId);
         localStorage.setItem('chatSessionId', newSessionId);
+        
+        console.log('✅ 새 세션 생성 완료:', newSessionId);
       }
     } catch (error) {
       console.error('세션 초기화 실패:', error);
@@ -153,6 +215,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
         type: 'error',
         message: '세션 초기화에 실패했습니다.',
       });
+      
+      // 🔧 실패 시 fallback: 임시 세션 ID 생성
+      const fallbackSessionId = `fallback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log('🆘 Fallback 세션 ID 생성:', fallbackSessionId);
+      synchronizeSessionId(fallbackSessionId, '세션 초기화 실패 복구');
     }
   }, [showToast]);
 
@@ -206,6 +273,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
     try {
       const response = await chatAPI.sendMessage(input, sessionId);
       
+      // 🔄 세션 ID 동기화 - 백엔드 응답의 session_id로 프론트엔드 상태 업데이트
+      const backendSessionId = response.data.session_id;
+      const wasSynchronized = synchronizeSessionId(backendSessionId, '메시지 응답 불일치 감지');
+      
       // API 응답 로그
       const responseLog: ApiLog = {
         id: (Date.now() + 1).toString(),
@@ -229,12 +300,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
       setMessages((prev) => [...prev, assistantMessage]);
       
-      // 세션 정보 업데이트
+      // 세션 정보 업데이트 (최신 동기화된 session_id 사용)
+      const currentSessionId = backendSessionId || sessionId;
       console.log('API Response:', response.data);
       console.log('Model Info:', response.data.model_info);
+      console.log('세션 동기화 결과:', { 
+        wasSynchronized,
+        currentSessionId,
+        messageCount: messages.length + 2
+      });
       
       const newSessionInfo = {
-        sessionId: response.data.session_id,
+        sessionId: currentSessionId, // 동기화된 최신 세션 ID 사용
         tokensUsed: response.data.tokens_used,
         processingTime: response.data.processing_time,
         messageCount: messages.length + 2,
@@ -243,7 +320,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
         provider: response.data.model_info?.provider,
         model: response.data.model_info?.model,
         generationTime: response.data.model_info?.generation_time,
-        parameters: response.data.model_info?.model_config
+        parameters: response.data.model_info?.model_config,
+        // 동기화 상태 추가
+        lastSynchronized: wasSynchronized ? new Date().toISOString() : undefined
       };
       
       console.log('Setting sessionInfo:', newSessionInfo);
@@ -295,20 +374,41 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
   const handleNewSession = async () => {
     try {
+      console.log('🆕 새 세션 시작 요청');
       const response = await chatAPI.startNewSession();
       const newSessionId = response.data.session_id;
-      setSessionId(newSessionId);
-      localStorage.setItem('chatSessionId', newSessionId);
+      
+      // 🔄 새 세션 생성 시 상태 및 저장소 완전 동기화
+      console.log('✅ 새 세션 ID 생성:', newSessionId);
+      synchronizeSessionId(newSessionId, '새 세션 생성');
       setMessages([]);
+      
+      // 세션 정보도 초기화
+      setSessionInfo(null);
+      
       showToast({
         type: 'success',
         message: '새로운 대화를 시작합니다.',
       });
-    } catch {
+      
+      console.log('🎯 새 세션 초기화 완료:', {
+        sessionId: newSessionId,
+        messagesCleared: true,
+        localStorageUpdated: true
+      });
+    } catch (error) {
+      console.error('새 세션 시작 실패:', error);
       showToast({
         type: 'error',
         message: '새 세션 시작에 실패했습니다.',
       });
+      
+      // 🔧 실패 시 fallback 세션 생성
+      const fallbackSessionId = `new-fallback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log('🆘 새 세션 Fallback ID 생성:', fallbackSessionId);
+      synchronizeSessionId(fallbackSessionId, '새 세션 생성 실패 복구');
+      setMessages([]);
+      setSessionInfo(null);
     }
   };
 
