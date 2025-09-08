@@ -423,7 +423,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
   return (
     <Box sx={{ 
-      height: '70vh', 
+      height: '80vh', // 전체 높이를 70vh에서 80vh로 증가 
       display: 'flex',
       bgcolor: '#F2F2F7', // iOS background secondary
       overflow: 'hidden',
@@ -790,7 +790,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
         justifyContent: 'center', 
         alignItems: 'stretch', 
         p: 3,
-        minHeight: '70vh'
+        minHeight: '80vh' // minHeight를 70vh에서 80vh로 증가
       }}>
         <Box sx={{ 
           width: '100%', 
@@ -891,7 +891,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
           {/* 채팅 메시지 영역 */}
           <Box sx={{ 
             flexGrow: 1, 
-            maxHeight: '400px',
+            minHeight: '500px', // 최소 높이 설정
+            maxHeight: '650px', // 최대 높이를 400px에서 650px로 증가
             overflow: 'auto', 
             p: 3,
             bgcolor: 'background.default',
