@@ -890,8 +890,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
           {/* 채팅 메시지 영역 */}
           <Box sx={{ 
-            flexGrow: 1, 
-            maxHeight: '400px',
+            flexGrow: 1,
+            minHeight: '500px',
+            maxHeight: '800px',
             overflow: 'auto', 
             p: 3,
             bgcolor: 'background.default',
