@@ -11,6 +11,7 @@ import {
   Alert,
 } from '@mui/material';
 import { LockOutlined } from '@mui/icons-material';
+import { setAdminAccess } from '../utils/accessControl';
 
 interface AccessControlProps {
   isOpen: boolean;
@@ -21,7 +22,6 @@ interface AccessControlProps {
 
 // 하드코딩된 접근코드
 const ACCESS_CODE = '1127';
-const SESSION_KEY = 'admin_access_granted';
 
 export function AccessControl({ isOpen, onAccessGranted, onCancel, title = "관리자 접근" }: AccessControlProps) {
   const [code, setCode] = useState('');
@@ -39,7 +39,7 @@ export function AccessControl({ isOpen, onAccessGranted, onCancel, title = "관�
     
     if (code === ACCESS_CODE) {
       // 세션에 접근 권한 저장
-      sessionStorage.setItem(SESSION_KEY, 'true');
+      setAdminAccess();
       onAccessGranted();
     } else {
       setError('잘못된 접근코드입니다.');
@@ -107,7 +107,7 @@ export function AccessControl({ isOpen, onAccessGranted, onCancel, title = "관�
             }}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
-                handleSubmit(e as any);
+                handleSubmit(e as React.FormEvent);
               }
             }}
           />
@@ -134,12 +134,3 @@ export function AccessControl({ isOpen, onAccessGranted, onCancel, title = "관�
   );
 }
 
-// 접근 권한 확인 유틸리티
-export function hasAdminAccess(): boolean {
-  return sessionStorage.getItem(SESSION_KEY) === 'true';
-}
-
-// 접근 권한 제거 유틸리티
-export function removeAdminAccess(): void {
-  sessionStorage.removeItem(SESSION_KEY);
-}

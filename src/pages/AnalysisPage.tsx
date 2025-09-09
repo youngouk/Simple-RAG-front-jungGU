@@ -19,14 +19,13 @@ import {
   Brightness7,
   CloudUpload,
   Chat,
-  BarChart,
   Psychology as PromptIcon,
   Logout,
 } from '@mui/icons-material';
 import { StatsTab } from '../components/StatsTab';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import { removeAdminAccess } from '../components/AccessControl';
+import { removeAdminAccess } from '../utils/accessControl';
 import { healthAPI } from '../services/api';
 import { ToastMessage } from '../types';
 
@@ -218,13 +217,13 @@ export default function AnalysisPage() {
     localStorage.setItem('darkMode', JSON.stringify(newMode));
   };
 
-  // 토스트 메시지 표시
-  const showToast = (message: Omit<ToastMessage, 'id'>) => {
-    setToast({
-      ...message,
-      id: Date.now().toString(),
-    });
-  };
+  // 토스트 메시지 표시 (필요시 사용)
+  // const showToast = (message: Omit<ToastMessage, 'id'>) => {
+  //   setToast({
+  //     ...message,
+  //     id: Date.now().toString(),
+  //   });
+  // };
 
   const handleLogout = () => {
     removeAdminAccess();

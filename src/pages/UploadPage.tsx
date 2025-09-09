@@ -30,7 +30,7 @@ import { UploadTab } from '../components/UploadTab';
 import { DocumentsTab } from '../components/DocumentsTab';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import { removeAdminAccess } from '../components/AccessControl';
+import { removeAdminAccess } from '../utils/accessControl';
 import { healthAPI } from '../services/api';
 import { ToastMessage } from '../types';
 

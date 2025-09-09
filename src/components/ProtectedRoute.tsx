@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { AccessControl, hasAdminAccess } from './AccessControl';
+import { useLocation } from 'react-router-dom';
+import { AccessControl } from './AccessControl';
+import { hasAdminAccess } from '../utils/accessControl';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
