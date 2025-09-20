@@ -27,6 +27,7 @@ import {
   Brightness7,
   Dashboard as DashboardIcon,
 } from '@mui/icons-material';
+import type { Shadows } from '@mui/material/styles';
 import { UploadTab } from './components/UploadTab';
 import { DocumentsTab } from './components/DocumentsTab';
 import { ChatTab } from './components/ChatTab';
@@ -159,7 +160,7 @@ function LegacyApp() {
     shape: {
       borderRadius: 8, // Sendbird default radius
     },
-    shadows: [
+    shadows: ([
       'none',
       '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
       '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
@@ -171,7 +172,7 @@ function LegacyApp() {
       '0 4px 14px 0 rgba(116, 45, 221, 0.25)', // Purple shadow medium
       '0 4px 14px 0 rgba(37, 156, 114, 0.25)', // Teal shadow
       ...Array(15).fill('none'),
-    ],
+    ]) as unknown as Shadows,
     components: {
       MuiButton: {
         styleOverrides: {
