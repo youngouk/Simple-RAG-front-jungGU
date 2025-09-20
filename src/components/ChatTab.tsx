@@ -13,13 +13,14 @@ import {
   AccordionDetails,
   List,
   ListItem,
-  ListItemText,
   Divider,
   Button,
   Card,
   CardContent,
   Tab,
   Tabs,
+  Stack,
+  Tooltip,
 } from '@mui/material';
 import {
   Send,
@@ -76,6 +77,14 @@ const CuteChatbotIcon = ({ fontSize = '24px', color = '#742DDD' }: { fontSize?: 
     <circle cx="36" cy="38" r="2" fill={color} opacity="0.7"/>
   </svg>
 );
+
+const formatSourcePreview = (text?: string, limit = 220) => {
+  if (!text) {
+    return '미리보기를 제공하지 않는 문서입니다.';
+  }
+
+  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+};
 
 interface ChatTabProps {
   showToast: (message: Omit<ToastMessage, 'id'>) => void;
@@ -998,60 +1007,140 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
                   {/* 소스 표시 */}
                   {message.sources && message.sources.length > 0 && (
-                    <Accordion sx={{
-                      mt: 1,
-                      borderRadius: '8px',
-                      boxShadow: 1,
-                      border: 1,
-                      borderColor: 'divider',
-                      bgcolor: 'background.paper',
-                      '&:before': { display: 'none' },
-                      '&.Mui-expanded': {
-                        margin: '8px 0',
-                        boxShadow: 2
-                      }
-                    }}>
-                      <AccordionSummary expandIcon={<ExpandMore />}>
-                        <Source sx={{ mr: 1 }} />
-                        <Typography variant="body2">
-                          참조 문서 ({message.sources.length}개)
-                        </Typography>
+                    <Accordion
+                      sx={{
+                        mt: 1.5,
+                        borderRadius: 2,
+                        boxShadow: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: 'background.paper',
+                        overflow: 'hidden',
+                        '&:before': { display: 'none' },
+                        '&.Mui-expanded': {
+                          mt: 1.5,
+                          boxShadow: 4,
+                        }
+                      }}
+                    >
+                      <AccordionSummary
+                        expandIcon={<ExpandMore />}
+                        sx={{
+                          px: 2.5,
+                          py: 1.5,
+                          bgcolor: 'rgba(116, 45, 221, 0.06)',
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          '& .MuiAccordionSummary-content': {
+                            alignItems: 'center',
+                            gap: 1.5,
+                          }
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                          }}
+                        >
+                          <Source sx={{ color: 'primary.main' }} />
+                          <Typography variant="subtitle2" color="text.primary" fontWeight={600}>
+                            RAG 참고 자료
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={`${message.sources.length}개 문서`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
                       </AccordionSummary>
-                      <AccordionDetails>
-                        <List dense>
+                      <AccordionDetails sx={{ px: 0, py: 2, bgcolor: 'background.default' }}>
+                        <Stack spacing={1.5} sx={{ px: 2.5 }}>
                           {message.sources.map((source, idx) => (
-                            <React.Fragment key={idx}>
-                              <ListItem>
-                                <ListItemText
-                                  primary={
-                                    <Typography variant="body2" fontWeight="bold">
-                                      {source.document} {source.chunk && `(청크 #${source.chunk})`}
+                            <Paper
+                              key={`${source.document || 'source'}-${idx}`}
+                              variant="outlined"
+                              sx={{
+                                position: 'relative',
+                                borderRadius: 2,
+                                px: 2,
+                                py: 1.75,
+                                bgcolor: 'background.paper',
+                                borderColor: 'divider',
+                                transition: 'all 0.25s ease',
+                                overflow: 'hidden',
+                                '&:before': {
+                                  content: '""',
+                                  position: 'absolute',
+                                  inset: 0,
+                                  borderRadius: 2,
+                                  background: 'linear-gradient(135deg, rgba(116,45,221,0.12), transparent)',
+                                  opacity: 0,
+                                  transition: 'opacity 0.25s ease',
+                                  pointerEvents: 'none'
+                                },
+                                '&:hover': {
+                                  boxShadow: 6,
+                                  transform: 'translateY(-2px)'
+                                },
+                                '&:hover:before': {
+                                  opacity: 1
+                                }
+                              }}
+                            >
+                              <Stack spacing={1.25}>
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: 2,
+                                  }}
+                                >
+                                  <Tooltip title={source.document || '문서명 없음'} placement="top-start">
+                                    <Typography variant="subtitle2" fontWeight={600}>
+                                      {source.document || '알 수 없는 문서'}
                                     </Typography>
-                                  }
-                                  secondary={
-                                    <>
-                                      <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                        sx={{ mt: 1, fontStyle: 'italic' }}
-                                      >
-                                        "{source.content_preview.substring(0, 200)}..."
-                                      </Typography>
+                                  </Tooltip>
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    {source.chunk && (
                                       <Chip
-                                        label={`유사도: ${(source.relevance * 100).toFixed(1)}%`}
+                                        label={`청크 #${source.chunk}`}
                                         size="small"
-                                        sx={{ mt: 1 }}
+                                        variant="outlined"
+                                      />
+                                    )}
+                                    {typeof source.relevance === 'number' && (
+                                      <Chip
+                                        label={`유사도 ${(source.relevance * 100).toFixed(1)}%`}
+                                        size="small"
                                         color="primary"
                                         variant="outlined"
                                       />
-                                    </>
-                                  }
-                                />
-                              </ListItem>
-                              {idx < (message.sources?.length || 0) - 1 && <Divider />}
-                            </React.Fragment>
+                                    )}
+                                  </Stack>
+                                </Box>
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                  sx={{
+                                    lineHeight: 1.65,
+                                    fontStyle: 'italic',
+                                  }}
+                                >
+                                  “{formatSourcePreview(source.content_preview)}”
+                                </Typography>
+                                {source.page && (
+                                  <Typography variant="caption" color="text.disabled">
+                                    페이지 {source.page}
+                                  </Typography>
+                                )}
+                              </Stack>
+                            </Paper>
                           ))}
-                        </List>
+                        </Stack>
                       </AccordionDetails>
                     </Accordion>
                   )}
