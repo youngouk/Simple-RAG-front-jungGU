@@ -798,14 +798,19 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'stretch', 
-        p: 3,
-        minHeight: '80vh' // minHeight를 70vh에서 80vh로 증가
+        px: 3,
+        pt: 1.5,
+        pb: 1.25,
+        minHeight: '78vh'
       }}>
         <Box sx={{ 
           width: '100%', 
           maxWidth: '820px', 
           display: 'flex', 
           flexDirection: 'column',
+          minHeight: 0, // 중요: 컬럼 컨테이너가 자식 스크롤 영역(메시지 리스트)이 축소될 수 있게 함
+          // flex 컨테이너의 기본값(min-height: auto)은 자식의 내용 높이만큼 최소 높이가 커져서
+          // 내부 스크롤 영역이 있어도 아래쪽에 여백이 남을 수 있습니다. minHeight: 0으로 무효화합니다.
           bgcolor: 'background.paper',
           borderRadius: '12px',
           boxShadow: 3,
@@ -899,15 +904,19 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
           {/* 채팅 메시지 영역 */}
           <Box sx={{ 
-            flexGrow: 1,
-            minHeight: '500px', // 최소 높이 설정
-            maxHeight: '800px', // 최대 높이 800px로 설정
+            // 핵심: 고정 min/maxHeight 제거하고 유연한 flex 항목으로 전환
+            // flex: '1 1 0%' → 남은 공간을 차지하되 필요 시 축소 허용
+            flex: '1 1 0%',
+            // 중요: 스크롤 영역이 부모의 높이를 넘겨도 아래 여백이 생기지 않도록 최소 높이 0
+            minHeight: 0,
             overflow: 'auto', 
-            p: 3,
+            px: 3,
+            pt: 3,
+            pb: 3,
             bgcolor: 'background.default',
             position: 'relative',
             '&::-webkit-scrollbar': {
-              width: '6px' // Thinner iOS-style scrollbar
+              width: '6px'
             },
             '&::-webkit-scrollbar-track': {
               bgcolor: 'transparent'
@@ -920,7 +929,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
               }
             }
           }}>
-            <List sx={{ p: 0 }}>
+            <List sx={{ p: 0, pb: 0 }}>
           {messages.map((message) => (
             <React.Fragment key={message.id}>
               <ListItem
@@ -1036,7 +1045,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                             gap: 1.5,
                           }
                         }}
-                      >
+                      > 
                         <Box
                           sx={{
                             display: 'flex',
@@ -1194,12 +1203,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
           {/* 입력 영역 */}
           <Box sx={{ 
-            p: 3, 
+            px: 1, 
+            pt: 0.75,
+            pb: 0.5,
             bgcolor: 'background.paper', 
             borderTop: 1,
             borderColor: 'divider'
           }}>
-            <Box display="flex" gap={2} alignItems="flex-end">
+            <Box display="flex" gap={0.75} alignItems="center">
               <TextField
                 fullWidth
                 multiline
@@ -1210,6 +1221,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                 onKeyPress={handleKeyPress}
                 disabled={loading}
                 variant="outlined"
+                size="small"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '8px',
@@ -1230,8 +1242,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                     }
                   },
                   '& .MuiInputBase-input': {
-                    px: 2.5,
-                    py: 1.5,
+                    px: 1.5,
+                    py: 0.6,
                     fontWeight: 400
                   }
                 }}
@@ -1240,7 +1252,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                 color="primary"
                 onClick={handleSend}
                 disabled={!input.trim() || loading}
-                size="large"
+                size="small"
                 sx={{ 
                   background: !input.trim() || loading 
                     ? '#C7C7C7' 
@@ -1250,8 +1262,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                     ? 'none' 
                     : '0 2px 8px rgba(116, 45, 221, 0.3)',
                   borderRadius: '8px',
-                  width: 48,
-                  height: 48,
+                  width: 36,
+                  height: 36,
                   transition: 'all 0.2s ease',
                   '&:hover': { 
                     background: !input.trim() || loading 
