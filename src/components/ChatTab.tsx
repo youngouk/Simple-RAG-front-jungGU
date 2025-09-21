@@ -21,6 +21,10 @@ import {
   Tabs,
   Stack,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Send,
@@ -37,6 +41,7 @@ import {
   Settings,
   BugReport,
   BarChart,
+  Close,
 } from '@mui/icons-material';
 import { ChatMessage, ToastMessage } from '../types';
 import { chatAPI } from '../services/api';
@@ -120,6 +125,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
     }
     return true;
   });
+  // 모달 상태 관리
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedChunk, setSelectedChunk] = useState<{
+    document?: string;
+    chunk?: number | string;
+    content?: string;
+    content_preview?: string;
+    relevance?: number;
+    page?: number;
+  } | null>(null);
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -416,6 +431,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // 청크 클릭 핸들러
+  const handleChunkClick = (source: any) => {
+    setSelectedChunk(source);
+    setModalOpen(true);
+  };
+
+  // 모달 닫기 핸들러
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setSelectedChunk(null);
   };
 
   const toggleLogExpansion = (logId: string) => {
@@ -1071,6 +1098,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                             <Paper
                               key={`${source.document || 'source'}-${idx}`}
                               variant="outlined"
+                              onClick={() => handleChunkClick(source)}
                               sx={{
                                 position: 'relative',
                                 borderRadius: 2,
@@ -1080,6 +1108,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                                 borderColor: 'divider',
                                 transition: 'all 0.25s ease',
                                 overflow: 'hidden',
+                                cursor: 'pointer',
                                 '&:before': {
                                   content: '""',
                                   position: 'absolute',
@@ -1289,6 +1318,139 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
           </Box>
         </Box>
       </Box>
+
+      {/* 청크 상세 내용 모달 */}
+      <Dialog
+        open={modalOpen}
+        onClose={handleCloseModal}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: 3,
+            maxHeight: '80vh',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            bgcolor: 'primary.main',
+            color: 'white',
+            py: 2,
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1}>
+            <Source />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              RAG 참고 자료 상세
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={handleCloseModal}
+            size="small"
+            sx={{
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {selectedChunk && (
+            <Box>
+              {/* 문서 정보 */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  📄 문서 정보
+                </Typography>
+                <Box sx={{ pl: 2, pt: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>문서명:</strong> {selectedChunk.document || '알 수 없는 문서'}
+                  </Typography>
+                  {selectedChunk.chunk && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>청크 번호:</strong> #{selectedChunk.chunk}
+                    </Typography>
+                  )}
+                  {selectedChunk.page && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>페이지:</strong> {selectedChunk.page}
+                    </Typography>
+                  )}
+                  {typeof selectedChunk.relevance === 'number' && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>유사도:</strong> {(selectedChunk.relevance * 100).toFixed(2)}%
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+
+              <Divider sx={{ mb: 3 }} />
+
+              {/* 청크 내용 */}
+              <Box>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  📝 청크 내용
+                </Typography>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 3,
+                    bgcolor: 'background.default',
+                    borderRadius: 2,
+                    maxHeight: '400px',
+                    overflow: 'auto',
+                    '&::-webkit-scrollbar': {
+                      width: '8px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      bgcolor: 'transparent',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      bgcolor: 'rgba(0, 0, 0, 0.2)',
+                      borderRadius: '4px',
+                      '&:hover': {
+                        bgcolor: 'rgba(0, 0, 0, 0.3)',
+                      },
+                    },
+                  }}
+                >
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.8,
+                      fontFamily: '"-apple-system", BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                    }}
+                  >
+                    {selectedChunk.content || selectedChunk.content_preview || '내용을 불러올 수 없습니다.'}
+                  </Typography>
+                </Paper>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={handleCloseModal}
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+            }}
+          >
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
