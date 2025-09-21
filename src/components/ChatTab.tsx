@@ -43,7 +43,7 @@ import {
   BarChart,
   Close,
 } from '@mui/icons-material';
-import { ChatMessage, ToastMessage } from '../types';
+import { ChatMessage, ToastMessage, Source } from '../types';
 import { chatAPI } from '../services/api';
 
 // 귀여운 챗봇 아이콘 SVG 컴포넌트
@@ -127,14 +127,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
   });
   // 모달 상태 관리
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedChunk, setSelectedChunk] = useState<{
-    document?: string;
-    chunk?: number | string;
-    content?: string;
-    content_preview?: string;
-    relevance?: number;
-    page?: number;
-  } | null>(null);
+  const [selectedChunk, setSelectedChunk] = useState<Source | null>(null);
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -434,7 +427,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
   };
 
   // 청크 클릭 핸들러
-  const handleChunkClick = (source: any) => {
+  const handleChunkClick = (source: Source) => {
     setSelectedChunk(source);
     setModalOpen(true);
   };
