@@ -323,7 +323,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
       
       // 🔄 세션 ID 동기화 - 백엔드 응답의 session_id로 프론트엔드 상태 업데이트
       const backendSessionId = response.data.session_id;
-      const wasSynchronized = synchronizeSessionId(backendSessionId, '메시지 응답 불일치 감지');
+      synchronizeSessionId(backendSessionId, '메시지 응답 불일치 감지');
       
       // API 응답 로그
       const responseLog: ApiLog = {
