@@ -84,13 +84,23 @@ export interface ChatResponse {
     provider: string;
     model: string;
     generation_time: number;
-    model_config?: {
-      temperature?: number;
-      max_tokens?: number;
-      top_p?: number;
-      top_k?: number;
-    };
+    model_config?: Record<string, unknown>;
   };
+}
+
+// 세션 정보 API 응답 타입
+export interface SessionInfo {
+  session_id: string;
+  messageCount: number;
+  tokensUsed: number;
+  processingTime: number;
+  modelInfo: {
+    provider: string;
+    model: string;
+    generation_time: number;
+    model_config: Record<string, unknown>;
+  };
+  timestamp: string;
 }
 
 export interface Stats {

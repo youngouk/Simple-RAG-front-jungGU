@@ -43,7 +43,7 @@ import {
   BarChart,
   Close,
 } from '@mui/icons-material';
-import { ChatMessage, ToastMessage, Source as SourceType } from '../types';
+import { ChatMessage, ToastMessage, Source as SourceType, SessionInfo } from '../types';
 import { chatAPI } from '../services/api';
 
 // 귀여운 챗봇 아이콘 SVG 컴포넌트
@@ -156,7 +156,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
   const [apiLogs, setApiLogs] = useState<ApiLog[]>([]);
   const [leftPanelTab, setLeftPanelTab] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [sessionInfo, setSessionInfo] = useState<Record<string, unknown> | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
   const [isDebugExpanded, setIsDebugExpanded] = useState<boolean>(false);
   const [messageAnimations, setMessageAnimations] = useState<Set<string>>(new Set());
@@ -348,33 +348,30 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
       setMessages((prev) => [...prev, assistantMessage]);
       
-      // 세션 정보 업데이트 (최신 동기화된 session_id 사용)
+      // 세션 정보를 백엔드에서 최신 정보로 다시 가져오기
       const currentSessionId = backendSessionId || sessionId;
-      console.log('API Response:', response.data);
-      console.log('Model Info:', response.data.model_info);
-      console.log('세션 동기화 결과:', { 
-        wasSynchronized,
-        currentSessionId,
-        messageCount: messages.length + 2
-      });
-      
-      const newSessionInfo = {
-        sessionId: currentSessionId, // 동기화된 최신 세션 ID 사용
-        tokensUsed: response.data.tokens_used,
-        processingTime: response.data.processing_time,
-        messageCount: messages.length + 2,
-        modelInfo: response.data.model_info,
-        // Debug용 추가 정보
-        provider: response.data.model_info?.provider,
-        model: response.data.model_info?.model,
-        generationTime: response.data.model_info?.generation_time,
-        parameters: response.data.model_info?.model_config,
-        // 동기화 상태 추가
-        lastSynchronized: wasSynchronized ? new Date().toISOString() : undefined
-      };
-      
-      console.log('Setting sessionInfo:', newSessionInfo);
-      setSessionInfo(newSessionInfo);
+      try {
+        const sessionInfoResponse = await chatAPI.getSessionInfo(currentSessionId);
+        console.log('최신 세션 정보 조회 성공:', sessionInfoResponse.data);
+        setSessionInfo(sessionInfoResponse.data);
+      } catch (sessionInfoError) {
+        console.warn('세션 정보 조회 실패, 기본 정보 사용:', sessionInfoError);
+        // 백엔드에서 세션 정보를 가져올 수 없으면 기존 방식 사용
+        const fallbackSessionInfo: SessionInfo = {
+          session_id: currentSessionId,
+          messageCount: messages.length + 2,
+          tokensUsed: response.data.tokens_used || 0,
+          processingTime: response.data.processing_time || 0,
+          modelInfo: response.data.model_info || {
+            provider: 'unknown',
+            model: 'unknown',
+            generation_time: 0,
+            model_config: {}
+          },
+          timestamp: new Date().toISOString()
+        };
+        setSessionInfo(fallbackSessionInfo);
+      }
     } catch (error: unknown) {
       console.error('메시지 전송 오류:', error);
       const apiError = error as { response?: { data?: { message?: string }; status?: number }; message?: string };
@@ -642,19 +639,19 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                         <Box sx={{ display: 'grid', gap: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2" color="text.secondary">
-                              💬 메시지
+                              메시지
                             </Typography>
                             <Chip label={sessionInfo.messageCount} size="small" sx={{ height: 20, fontWeight: 600 }} />
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2" color="text.secondary">
-                              🎯 토큰
+                              토큰
                             </Typography>
                             <Chip label={sessionInfo.tokensUsed} size="small" color="primary" sx={{ height: 20, fontWeight: 600 }} />
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2" color="text.secondary">
-                              ⚡ 처리시간
+                              처리시간
                             </Typography>
                             <Chip label={`${sessionInfo.processingTime?.toFixed(2)}s`} size="small" color="success" sx={{ height: 20, fontWeight: 600 }} />
                           </Box>
@@ -675,13 +672,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                             </Box>
                             <Box sx={{ display: 'grid', gap: 0.5 }}>
                               <Typography variant="body2" color="text.secondary">
-                                🏢 프로바이더: <strong>{sessionInfo.modelInfo.provider || 'N/A'}</strong>
+                                LLM 프로바이더: <strong>{sessionInfo.modelInfo.provider || 'N/A'}</strong>
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
-                                🤖 모델: <strong>{sessionInfo.modelInfo.model || 'N/A'}</strong>
+                                모델: <strong>{sessionInfo.modelInfo.model || 'N/A'}</strong>
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
-                                ⏱️ 생성시간: <strong>{sessionInfo.modelInfo.generation_time ? `${sessionInfo.modelInfo.generation_time.toFixed(3)}s` : 'N/A'}</strong>
+                                생성시간: <strong>{sessionInfo.modelInfo.generation_time ? `${sessionInfo.modelInfo.generation_time.toFixed(3)}s` : 'N/A'}</strong>
                               </Typography>
                           
                               {sessionInfo.modelInfo.model_config && (

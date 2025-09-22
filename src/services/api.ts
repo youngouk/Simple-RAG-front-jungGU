@@ -7,6 +7,7 @@ import {
   UploadStatus,
   ChatResponse,
   Stats,
+  SessionInfo,
 } from '../types';
 
 // Runtime 설정 타입 정의
@@ -261,19 +262,23 @@ export const documentAPI = {
 // Chat API
 export const chatAPI = {
   // 메시지 전송
-  sendMessage: (message: string, sessionId?: string) => 
-    api.post<ChatResponse>('/api/chat', { 
-      message, 
-      session_id: sessionId || localStorage.getItem('chatSessionId') 
+  sendMessage: (message: string, sessionId?: string) =>
+    api.post<ChatResponse>('/api/chat', {
+      message,
+      session_id: sessionId || localStorage.getItem('chatSessionId')
     }),
 
   // 채팅 기록 조회
-  getChatHistory: (sessionId: string) => 
+  getChatHistory: (sessionId: string) =>
     api.get<{ messages: ChatResponse[] }>(`/api/chat/history/${sessionId}`),
 
   // 새 세션 시작
-  startNewSession: () => 
+  startNewSession: () =>
     api.post<{ session_id: string }>('/api/chat/session', {}),
+
+  // 세션 정보 조회
+  getSessionInfo: (sessionId: string) =>
+    api.get<SessionInfo>(`/api/chat/session/${sessionId}/info`),
 };
 
 // Stats API
