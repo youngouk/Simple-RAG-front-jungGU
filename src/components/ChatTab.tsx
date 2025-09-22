@@ -133,6 +133,34 @@ const formatFullContent = (text?: string) => {
     .trim();
 };
 
+const formatModelConfigValue = (value: unknown): string => {
+  if (value === null) {
+    return 'null';
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value.toString();
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => formatModelConfigValue(item)).join(', ');
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+};
+
 interface ChatTabProps {
   showToast: (message: Omit<ToastMessage, 'id'>) => void;
 }
@@ -489,6 +517,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
     });
   };
 
+  const modelConfigEntries = sessionInfo?.modelInfo?.model_config
+    ? Object.entries(sessionInfo.modelInfo.model_config).filter(([, value]) => value !== undefined && value !== null)
+    : [];
+
   return (
     <Box sx={{ 
       height: '80vh', // 전체 높이를 70vh에서 80vh로 증가 
@@ -681,36 +713,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                                 생성시간: <strong>{sessionInfo.modelInfo.generation_time ? `${sessionInfo.modelInfo.generation_time.toFixed(3)}s` : 'N/A'}</strong>
                               </Typography>
                           
-                              {sessionInfo.modelInfo.model_config && (
-                                <>
-                                  <Divider sx={{ my: 1 }} />
-                                  <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block', fontWeight: 600 }}>
-                                    📊 모델 파라미터
+                          {modelConfigEntries.length > 0 && (
+                            <>
+                              <Divider sx={{ my: 1 }} />
+                              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block', fontWeight: 600 }}>
+                                📊 모델 파라미터
+                              </Typography>
+                              <Box sx={{ display: 'grid', gap: 0.25 }}>
+                                {modelConfigEntries.map(([key, value]) => (
+                                  <Typography key={key} variant="caption" color="text.secondary">
+                                    {`${key}: `}
+                                    <strong>{formatModelConfigValue(value)}</strong>
                                   </Typography>
-                                  <Box sx={{ display: 'grid', gap: 0.25 }}>
-                                    {sessionInfo.modelInfo.model_config.temperature !== undefined && (
-                                      <Typography variant="caption" color="text.secondary">
-                                        🌡️ Temperature: <strong>{sessionInfo.modelInfo.model_config.temperature}</strong>
-                                      </Typography>
-                                    )}
-                                    {(sessionInfo.modelInfo.model_config.max_tokens || sessionInfo.modelInfo.model_config.max_output_tokens) && (
-                                      <Typography variant="caption" color="text.secondary">
-                                        📏 Max Tokens: <strong>{sessionInfo.modelInfo.model_config.max_tokens || sessionInfo.modelInfo.model_config.max_output_tokens}</strong>
-                                      </Typography>
-                                    )}
-                                    {sessionInfo.modelInfo.model_config.top_p !== undefined && (
-                                      <Typography variant="caption" color="text.secondary">
-                                        🎯 Top P: <strong>{sessionInfo.modelInfo.model_config.top_p}</strong>
-                                      </Typography>
-                                    )}
-                                    {sessionInfo.modelInfo.model_config.top_k !== undefined && (
-                                      <Typography variant="caption" color="text.secondary">
-                                        🔝 Top K: <strong>{sessionInfo.modelInfo.model_config.top_k}</strong>
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                </>
-                              )}
+                                ))}
+                              </Box>
+                            </>
+                          )}
                             </Box>
                           </CardContent>
                         </Card>
