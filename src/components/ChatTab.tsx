@@ -83,39 +83,114 @@ const CuteChatbotIcon = ({ fontSize = '24px', color = '#742DDD' }: { fontSize?: 
   </svg>
 );
 
-// HTML 테이블 감지 및 파싱
-const detectAndParseTable = (text: string) => {
-  // HTML 테이블 태그가 있는지 확인
-  if (text.includes('<table>') || text.includes('<td>') || text.includes('<tr>')) {
-    // HTML 태그를 텍스트로 변환하되 구조는 유지
-    return text
-      .replace(/<thead>/g, '')
-      .replace(/<\/thead>/g, '')
-      .replace(/<tbody>/g, '')
-      .replace(/<\/tbody>/g, '')
-      .replace(/<table[^>]*>/g, '')
-      .replace(/<\/table>/g, '')
-      .replace(/<tr>/g, '\n')
-      .replace(/<\/tr>/g, '')
-      .replace(/<td>/g, ' | ')
-      .replace(/<\/td>/g, '')
-      .replace(/<th>/g, ' | ')
-      .replace(/<\/th>/g, '')
-      .replace(/^\s*\|\s*/, '') // 각 줄 시작의 파이프 제거
-      .replace(/\s*\|\s*$/gm, '') // 각 줄 끝의 파이프 제거
-      .trim();
-  }
-  return text;
+// HTML 콘텐츠 파싱 유틸리티 함수
+const parseHtmlContent = (text: string): string => {
+  if (!text) return text;
+
+  // HTML 콘텐츠인지 확인
+  const hasHtmlTags = /<[^>]+>/.test(text);
+  if (!hasHtmlTags) return text;
+
+  let parsedText = text;
+
+  // 1. 인라인 스타일 제거 (가독성 향상)
+  parsedText = parsedText.replace(/style=['"][^'"]*['"]/g, '');
+
+  // 2. data 속성 제거
+  parsedText = parsedText.replace(/data-[^=]*=['"][^'"]*['"]/g, '');
+
+  // 3. id 속성 제거
+  parsedText = parsedText.replace(/id=['"][^'"]*['"]/g, '');
+
+  // 4. HTML 태그를 텍스트로 변환
+  parsedText = parsedText
+    // 테이블 관련 태그
+    .replace(/<table[^>]*>/g, '\n테이블 시작\n')
+    .replace(/<\/table>/g, '\n테이블 끝\n')
+    .replace(/<thead[^>]*>/g, '')
+    .replace(/<\/thead>/g, '')
+    .replace(/<tbody[^>]*>/g, '')
+    .replace(/<\/tbody>/g, '')
+    .replace(/<tr[^>]*>/g, '\n')
+    .replace(/<\/tr>/g, '')
+    .replace(/<td[^>]*>/g, ' | ')
+    .replace(/<\/td>/g, '')
+    .replace(/<th[^>]*>/g, ' | ')
+    .replace(/<\/th>/g, '')
+
+    // 문단 및 텍스트 구조 태그
+    .replace(/<p[^>]*>/g, '\n\n')
+    .replace(/<\/p>/g, '')
+    .replace(/<div[^>]*>/g, '\n')
+    .replace(/<\/div>/g, '')
+    .replace(/<span[^>]*>/g, '')
+    .replace(/<\/span>/g, '')
+    .replace(/<h[1-6][^>]*>/g, '\n\n📋 ')
+    .replace(/<\/h[1-6]>/g, '\n')
+
+    // 줄바꿈 및 서식 태그
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/<hr\s*\/?>/g, '\n────────────────────\n')
+
+    // 리스트 태그
+    .replace(/<ul[^>]*>/g, '\n')
+    .replace(/<\/ul>/g, '\n')
+    .replace(/<ol[^>]*>/g, '\n')
+    .replace(/<\/ol>/g, '\n')
+    .replace(/<li[^>]*>/g, '• ')
+    .replace(/<\/li>/g, '\n')
+
+    // 강조 태그
+    .replace(/<strong[^>]*>/g, '**')
+    .replace(/<\/strong>/g, '**')
+    .replace(/<b[^>]*>/g, '**')
+    .replace(/<\/b>/g, '**')
+    .replace(/<em[^>]*>/g, '*')
+    .replace(/<\/em>/g, '*')
+    .replace(/<i[^>]*>/g, '*')
+    .replace(/<\/i>/g, '*')
+
+    // 기타 남은 HTML 태그 제거
+    .replace(/<[^>]+>/g, '');
+
+  // 5. 텍스트 정리
+  parsedText = parsedText
+    // 연속된 줄바꿈 정리 (3개 이상 → 2개)
+    .replace(/\n{3,}/g, '\n\n')
+    // 줄 시작/끝의 공백 정리
+    .replace(/^[ \t]+|[ \t]+$/gm, '')
+    // 파이프 기호 정리 (테이블용)
+    .replace(/^\s*\|\s*/gm, '')
+    .replace(/\s*\|\s*$/gm, '')
+    // 연속된 공백을 단일 공백으로
+    .replace(/[ \t]{2,}/g, ' ')
+    // 전체 텍스트 앞뒤 공백 제거
+    .trim();
+
+  return parsedText;
 };
+
 
 const formatSourcePreview = (text?: string, limit = 220) => {
   if (!text) {
     return '미리보기를 제공하지 않는 문서입니다.';
   }
 
-  // 테이블 감지 및 변환
-  const processedText = detectAndParseTable(text);
-  return processedText.length > limit ? `${processedText.slice(0, limit)}…` : processedText;
+  // HTML 콘텐츠 파싱 (개선된 파싱 사용)
+  const processedText = parseHtmlContent(text);
+
+  // 미리보기용 텍스트 처리
+  const previewText = processedText
+    // 테이블 시작/끝 표시를 더 간결하게
+    .replace(/테이블 시작/g, '📊')
+    .replace(/테이블 끝/g, '')
+    // 연속된 줄바꿈을 공백으로 변경 (미리보기에서는 간결하게)
+    .replace(/\n+/g, ' ')
+    // 연속된 공백 정리
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return previewText.length > limit ? `${previewText.slice(0, limit)}…` : previewText;
 };
 
 // 전체 콘텐츠 포맷팅 함수
@@ -124,12 +199,16 @@ const formatFullContent = (text?: string) => {
     return '내용을 불러올 수 없습니다.';
   }
 
-  // 테이블 감지 및 변환
-  const processedText = detectAndParseTable(text);
+  // HTML 콘텐츠 파싱 (개선된 파싱 사용)
+  const processedText = parseHtmlContent(text);
 
-  // 줄바꿈과 공백 정리
+  // 전체 콘텐츠용 추가 정리
   return processedText
-    .replace(/\n\s*\n/g, '\n\n') // 연속된 빈 줄 정리
+    // 테이블 표시를 더 명확하게
+    .replace(/테이블 시작/g, '\n📊 테이블\n' + '─'.repeat(40))
+    .replace(/테이블 끝/g, '─'.repeat(40) + '\n')
+    // 최종 줄바꿈과 공백 정리
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 };
 
