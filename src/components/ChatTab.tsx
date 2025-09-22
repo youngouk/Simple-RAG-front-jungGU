@@ -83,12 +83,54 @@ const CuteChatbotIcon = ({ fontSize = '24px', color = '#742DDD' }: { fontSize?: 
   </svg>
 );
 
+// HTML 테이블 감지 및 파싱
+const detectAndParseTable = (text: string) => {
+  // HTML 테이블 태그가 있는지 확인
+  if (text.includes('<table>') || text.includes('<td>') || text.includes('<tr>')) {
+    // HTML 태그를 텍스트로 변환하되 구조는 유지
+    return text
+      .replace(/<thead>/g, '')
+      .replace(/<\/thead>/g, '')
+      .replace(/<tbody>/g, '')
+      .replace(/<\/tbody>/g, '')
+      .replace(/<table[^>]*>/g, '')
+      .replace(/<\/table>/g, '')
+      .replace(/<tr>/g, '\n')
+      .replace(/<\/tr>/g, '')
+      .replace(/<td>/g, ' | ')
+      .replace(/<\/td>/g, '')
+      .replace(/<th>/g, ' | ')
+      .replace(/<\/th>/g, '')
+      .replace(/^\s*\|\s*/, '') // 각 줄 시작의 파이프 제거
+      .replace(/\s*\|\s*$/gm, '') // 각 줄 끝의 파이프 제거
+      .trim();
+  }
+  return text;
+};
+
 const formatSourcePreview = (text?: string, limit = 220) => {
   if (!text) {
     return '미리보기를 제공하지 않는 문서입니다.';
   }
 
-  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+  // 테이블 감지 및 변환
+  const processedText = detectAndParseTable(text);
+  return processedText.length > limit ? `${processedText.slice(0, limit)}…` : processedText;
+};
+
+// 전체 콘텐츠 포맷팅 함수
+const formatFullContent = (text?: string) => {
+  if (!text) {
+    return '내용을 불러올 수 없습니다.';
+  }
+
+  // 테이블 감지 및 변환
+  const processedText = detectAndParseTable(text);
+
+  // 줄바꿈과 공백 정리
+  return processedText
+    .replace(/\n\s*\n/g, '\n\n') // 연속된 빈 줄 정리
+    .trim();
 };
 
 interface ChatTabProps {
@@ -1161,7 +1203,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                                     fontStyle: 'italic',
                                   }}
                                 >
-                                  “{formatSourcePreview(source.content_preview)}”
+                                  "{formatSourcePreview(source.content || source.content_preview)}"
                                 </Typography>
                                 {source.page && (
                                   <Typography variant="caption" color="text.disabled">
@@ -1397,7 +1439,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                     p: 3,
                     bgcolor: 'background.default',
                     borderRadius: 2,
-                    maxHeight: '400px',
+                    maxHeight: '500px',
                     overflow: 'auto',
                     '&::-webkit-scrollbar': {
                       width: '8px',
@@ -1414,16 +1456,59 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                     },
                   }}
                 >
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      lineHeight: 1.8,
-                      fontFamily: '"-apple-system", BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                    }}
-                  >
-                    {selectedChunk.content || selectedChunk.content_preview || '내용을 불러올 수 없습니다.'}
-                  </Typography>
+                  {/* HTML 테이블인 경우 특별 처리 */}
+                  {(selectedChunk.content || selectedChunk.content_preview || '').includes('<table') ||
+                   (selectedChunk.content || selectedChunk.content_preview || '').includes('<td>') ? (
+                    <Box
+                      sx={{
+                        '& table': {
+                          width: '100%',
+                          borderCollapse: 'collapse',
+                          fontSize: '0.875rem',
+                        },
+                        '& td, & th': {
+                          border: '1px solid #e0e0e0',
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                        },
+                        '& th': {
+                          backgroundColor: '#f5f5f5',
+                          fontWeight: 600,
+                        },
+                        '& tr:nth-of-type(even)': {
+                          backgroundColor: '#fafafa',
+                        },
+                        '& tr:hover': {
+                          backgroundColor: '#f0f0f0',
+                        },
+                      }}
+                    >
+                      <Typography
+                        variant="body1"
+                        component="div"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: 1.8,
+                          fontFamily: 'monospace',
+                          fontSize: '0.9rem',
+                        }}
+                      >
+                        {formatFullContent(selectedChunk.content || selectedChunk.content_preview)}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.8,
+                        fontFamily: '"-apple-system", BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                        fontSize: '0.95rem',
+                      }}
+                    >
+                      {formatFullContent(selectedChunk.content || selectedChunk.content_preview)}
+                    </Typography>
+                  )}
                 </Paper>
               </Box>
             </Box>
