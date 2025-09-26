@@ -4,17 +4,6 @@
  * 실시간 모니터링, 세션 관리, WebSocket 지원
  */
 
-// Runtime 설정 타입 정의
-declare global {
-  interface Window {
-    RUNTIME_CONFIG?: {
-      API_BASE_URL?: string;
-      WS_BASE_URL?: string;
-      NODE_ENV?: string;
-    };
-  }
-}
-
 // API 기본 설정 - Railway 배포된 백엔드 서버 사용
 const getAPIBaseURL = (): string => {
   // Railway 배포된 백엔드 URL 직접 사용

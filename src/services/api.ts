@@ -10,16 +10,6 @@ import {
   SessionInfo,
 } from '../types';
 
-// Runtime 설정 타입 정의
-declare global {
-  interface Window {
-    RUNTIME_CONFIG?: {
-      API_BASE_URL?: string;
-      NODE_ENV?: string;
-    };
-  }
-}
-
 // Railway 배포 최적화 API URL 관리
 const getAPIBaseURL = (): string => {
   // 개발 모드: Vite 프록시 활용

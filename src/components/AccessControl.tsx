@@ -25,9 +25,9 @@ interface AccessControlProps {
 // 2. 실패 시 기본값 1127 사용
 const getAccessCode = () => {
   // Railway 런타임 설정 확인
-  if (typeof window !== 'undefined' && (window as any).RUNTIME_CONFIG?.ACCESS_CODE) {
-    console.log('🔑 Railway 환경변수 사용:', (window as any).RUNTIME_CONFIG.ACCESS_CODE);
-    return (window as any).RUNTIME_CONFIG.ACCESS_CODE;
+  if (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.ACCESS_CODE) {
+    console.log('🔑 Railway 환경변수 사용:', window.RUNTIME_CONFIG.ACCESS_CODE);
+    return window.RUNTIME_CONFIG.ACCESS_CODE;
   }
 
   // 개발 환경에서만 .env 파일 사용 (프로덕션에서는 무시됨)
