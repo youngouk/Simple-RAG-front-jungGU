@@ -47,9 +47,12 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # nginx 설정 파일 복사
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 
+# entrypoint 스크립트 복사 (런타임 config.js 생성용)
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Railway에서 동적으로 할당하는 포트 사용
 EXPOSE $PORT
 
-# nginx 실행 (Railway 동적 포트 사용)
-CMD ["sh", "-c", "envsubst '${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+# entrypoint.sh 실행 (config.js 생성 후 nginx 시작)
+ENTRYPOINT ["/entrypoint.sh"]

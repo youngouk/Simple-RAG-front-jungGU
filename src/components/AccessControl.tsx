@@ -24,6 +24,9 @@ interface AccessControlProps {
 // 1. Railway 런타임 설정 (최우선)
 // 2. 실패 시 기본값 1127 사용
 const getAccessCode = () => {
+  // 디버깅: 전체 RUNTIME_CONFIG 출력
+  console.log('📊 전체 RUNTIME_CONFIG:', window.RUNTIME_CONFIG);
+
   // Railway 런타임 설정 확인
   if (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.ACCESS_CODE) {
     console.log('🔑 Railway 환경변수 사용:', window.RUNTIME_CONFIG.ACCESS_CODE);
@@ -32,7 +35,7 @@ const getAccessCode = () => {
 
   // 개발 환경에서만 .env 파일 사용 (프로덕션에서는 무시됨)
   if (import.meta.env.MODE === 'development' && import.meta.env.VITE_ACCESS_CODE) {
-    console.log('🔧 개발 환경변수 사용');
+    console.log('🔧 개발 환경변수 사용:', import.meta.env.VITE_ACCESS_CODE);
     return import.meta.env.VITE_ACCESS_CODE;
   }
 
