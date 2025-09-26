@@ -30,8 +30,8 @@ claude() {
 ```
 
 ## 3. 프로젝트 내 훅 구성
-- `.claude/hooks/withcodex_codex.py`: Codex exec 호출 및 추가 컨텍스트 반환
-- `.claude/settings.json`: UserPromptSubmit 이벤트에 위 스크립트 등록 (`"$CLAUDE_PROJECT_DIR"`로 경로 인용)
+- `.claude/hooks/withcodex_codex.py`: Codex exec 호출 및 추가 컨텍스트 반환 (에러 시 메시지도 첨부)
+- `.claude/settings.json`: UserPromptSubmit 이벤트에 위 스크립트 등록 (`"$CLAUDE_PROJECT_DIR"`로 경로 인용, `dangerouslyOverrideSandbox: true`로 Codex CLI가 macOS Seatbelt에 막히지 않도록 설정)
 
 ## 4. 사용 방법
 - 기본 실행: `claude`

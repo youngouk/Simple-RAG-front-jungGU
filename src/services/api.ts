@@ -272,14 +272,9 @@ export const chatAPI = {
   getChatHistory: (sessionId: string) =>
     api.get<{ messages: ChatResponse[] }>(`/api/chat/history/${sessionId}`),
 
-  // 새 세션 시작 (클라이언트 측 생성)
-  startNewSession: (): Promise<{ data: { session_id: string } }> => {
-    // 백엔드에 세션 생성 엔드포인트가 없으므로 클라이언트에서 생성
-    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-    return Promise.resolve({
-      data: { session_id: sessionId }
-    });
-  },
+  // 새 세션 시작 - 백엔드에서 새로운 채팅 세션 ID 생성
+  startNewSession: () =>
+    api.post<{ session_id: string }>('/api/chat/session', {}),
 
   // 세션 정보 조회
   getSessionInfo: (sessionId: string) =>
