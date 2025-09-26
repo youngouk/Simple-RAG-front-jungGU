@@ -45,6 +45,7 @@ import {
 } from '@mui/icons-material';
 import { ChatMessage, ToastMessage, Source as SourceType, SessionInfo } from '../types';
 import { chatAPI } from '../services/api';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 // 귀여운 챗봇 아이콘 SVG 컴포넌트
 const CuteChatbotIcon = ({ fontSize = '24px', color = '#742DDD' }: { fontSize?: string; color?: string }) => (
@@ -1147,14 +1148,47 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                     }}
                     elevation={0}
                   >
-                    <Typography variant="body1" sx={{ 
-                      whiteSpace: 'pre-wrap',
-                      lineHeight: 1.5,
-                      fontSize: '14px',
-                      fontWeight: 400
-                    }}>
-                      {message.content}
-                    </Typography>
+                    {message.role === 'assistant' ? (
+                      <MarkdownRenderer
+                        content={message.content}
+                        sx={{
+                          '& p': {
+                            margin: 0,
+                            marginBottom: '8px',
+                            fontSize: '14px',
+                            fontWeight: 400,
+                            lineHeight: 1.5,
+                            '&:last-child': {
+                              marginBottom: 0
+                            }
+                          },
+                          '& h2, & h3': {
+                            marginTop: '12px',
+                            marginBottom: '8px',
+                            fontSize: message.role === 'assistant' ? '15px' : '14px',
+                            '&:first-child': {
+                              marginTop: 0
+                            }
+                          },
+                          '& ul, & ol': {
+                            marginTop: '8px',
+                            marginBottom: '8px',
+                            '& li': {
+                              fontSize: '14px'
+                            }
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Typography variant="body1" sx={{
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.5,
+                        fontSize: '14px',
+                        fontWeight: 400
+                      }}>
+                        {message.content}
+                      </Typography>
+                    )}
                     <Typography
                       variant="caption"
                       sx={{
@@ -1297,7 +1331,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                                     fontStyle: 'italic',
                                   }}
                                 >
-                                  "{formatSourcePreview(source.content || source.content_preview)}"
+                                  "{formatSourcePreview(source.content_preview)}"
                                 </Typography>
                                 {source.page && (
                                   <Typography variant="caption" color="text.disabled">
@@ -1376,7 +1410,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                 placeholder="메시지를 입력하세요..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 disabled={loading}
                 variant="outlined"
                 size="small"
@@ -1551,8 +1585,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                   }}
                 >
                   {/* HTML 테이블인 경우 특별 처리 */}
-                  {(selectedChunk.content || selectedChunk.content_preview || '').includes('<table') ||
-                   (selectedChunk.content || selectedChunk.content_preview || '').includes('<td>') ? (
+                  {(selectedChunk.content_preview || '').includes('<table') ||
+                   (selectedChunk.content_preview || '').includes('<td>') ? (
                     <Box
                       sx={{
                         '& table': {
@@ -1587,7 +1621,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                           fontSize: '0.9rem',
                         }}
                       >
-                        {formatFullContent(selectedChunk.content || selectedChunk.content_preview)}
+                        {formatFullContent(selectedChunk.content_preview)}
                       </Typography>
                     </Box>
                   ) : (
@@ -1600,7 +1634,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                         fontSize: '0.95rem',
                       }}
                     >
-                      {formatFullContent(selectedChunk.content || selectedChunk.content_preview)}
+                      {formatFullContent(selectedChunk.content_preview)}
                     </Typography>
                   )}
                 </Paper>
