@@ -48,8 +48,8 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 
 
-# Railway에서 동적으로 할당하는 포트 사용
-EXPOSE $PORT
+# Railway에서 동적으로 할당하는 포트 사용 (기본값 3000)
+EXPOSE 3000
 
-# nginx 실행 (Railway 환경에서 PORT 변수 사용)
-CMD ["sh", "-c", "envsubst '${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+# nginx 실행 (PORT 기본값 설정 후 실행)
+CMD ["sh", "-c", "export PORT=${PORT:-3000} && envsubst '${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]

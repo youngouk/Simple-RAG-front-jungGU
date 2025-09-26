@@ -12,7 +12,7 @@
 window.RUNTIME_CONFIG = {
   // Railway 백엔드 서비스 URL을 여기에 설정하세요
   // 예: 'https://simple-rag-backend-production.up.railway.app'
-  API_BASE_URL: '',
+  API_BASE_URL: 'https://simple-rag-back-junggu-production-23c1.up.railway.app',
   
   // 환경 설정 (production, development, staging)
   NODE_ENV: 'production',
