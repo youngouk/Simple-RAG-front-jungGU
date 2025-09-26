@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, List, ListItem, ListItemText, Divider } from '@mui/material';
+import { Box, Typography, List, ListItem, ListItemText } from '@mui/material';
 
 interface MarkdownRendererProps {
   content: string;
@@ -129,7 +129,7 @@ const renderTextWithBold = (text: string) => {
 // 마크다운 요소를 React 컴포넌트로 렌더링
 const renderElement = (element: MarkdownElement, index: number): React.ReactNode => {
   switch (element.type) {
-    case 'heading':
+    case 'heading': {
       const HeadingTag = element.level === 2 ? 'h2' : 'h3';
       return (
         <Box key={index} sx={{ mb: 2 }}>
@@ -151,8 +151,9 @@ const renderElement = (element: MarkdownElement, index: number): React.ReactNode
           </Typography>
         </Box>
       );
+    }
 
-    case 'list':
+    case 'list': {
       const isNumbered = element.listType === 'numbered';
       return (
         <Box key={index} sx={{ mb: 2 }}>
@@ -202,8 +203,9 @@ const renderElement = (element: MarkdownElement, index: number): React.ReactNode
           </List>
         </Box>
       );
+    }
 
-    case 'paragraph':
+    case 'paragraph': {
       // 특별한 케이스: "**데이터 내에 명확한 정보가 존재하지 않아 추측한 답변입니다.**" 같은 주의사항
       const isWarning = element.content?.startsWith('**') && element.content?.includes('추측한 답변') && element.content?.endsWith('**');
 
@@ -227,6 +229,7 @@ const renderElement = (element: MarkdownElement, index: number): React.ReactNode
           {renderTextWithBold(element.content || '')}
         </Typography>
       );
+    }
 
     default:
       return null;
