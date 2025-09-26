@@ -20,8 +20,28 @@ interface AccessControlProps {
   title?: string;
 }
 
-// Railway 환경변수에서 접근코드를 가져오기 (개발 환경에서는 기본값 사용)
-const ACCESS_CODE = import.meta.env.VITE_ACCESS_CODE || '1127';
+// Railway 환경변수에서 접근코드를 가져오기
+// 1. Railway 런타임 설정 (최우선)
+// 2. 실패 시 기본값 1127 사용
+const getAccessCode = () => {
+  // Railway 런타임 설정 확인
+  if (typeof window !== 'undefined' && (window as any).RUNTIME_CONFIG?.ACCESS_CODE) {
+    console.log('🔑 Railway 환경변수 사용:', (window as any).RUNTIME_CONFIG.ACCESS_CODE);
+    return (window as any).RUNTIME_CONFIG.ACCESS_CODE;
+  }
+
+  // 개발 환경에서만 .env 파일 사용 (프로덕션에서는 무시됨)
+  if (import.meta.env.MODE === 'development' && import.meta.env.VITE_ACCESS_CODE) {
+    console.log('🔧 개발 환경변수 사용');
+    return import.meta.env.VITE_ACCESS_CODE;
+  }
+
+  // 기본값
+  console.log('⚠️ 환경변수 없음 - 기본값 사용');
+  return '1127';
+};
+
+const ACCESS_CODE = getAccessCode();
 
 export function AccessControl({ isOpen, onAccessGranted, onCancel, title = "관리자 접근" }: AccessControlProps) {
   const [code, setCode] = useState('');

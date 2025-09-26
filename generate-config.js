@@ -49,6 +49,8 @@ const config = {
   NODE_ENV: process.env.NODE_ENV || 'production',
   TIMESTAMP: new Date().toISOString(),
   RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT || null,
+  // Railway 환경변수에서 접근코드 가져오기
+  ACCESS_CODE: process.env.VITE_ACCESS_CODE || process.env.ACCESS_CODE || '1127',
 };
 
 // config.js 파일 생성
