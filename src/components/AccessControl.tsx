@@ -20,8 +20,8 @@ interface AccessControlProps {
   title?: string;
 }
 
-// 하드코딩된 접근코드
-const ACCESS_CODE = '1127';
+// Railway 환경변수에서 접근코드를 가져오기 (개발 환경에서는 기본값 사용)
+const ACCESS_CODE = import.meta.env.VITE_ACCESS_CODE || '1127';
 
 export function AccessControl({ isOpen, onAccessGranted, onCancel, title = "관리자 접근" }: AccessControlProps) {
   const [code, setCode] = useState('');
