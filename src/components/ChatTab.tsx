@@ -25,7 +25,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
 } from '@mui/material';
 import {
   Send,
@@ -412,13 +411,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
 
     return items;
   }, [selectedChunk]);
-
-  const documentInfoColumns = useMemo<[DocumentInfoItem[], DocumentInfoItem[]]>(() => {
-    if (documentInfoItems.length === 0) {
-      return [[], []];
-    }
-    return [documentInfoItems.slice(0, 10), documentInfoItems.slice(10, 20)];
-  }, [documentInfoItems]);
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -1671,54 +1663,78 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
             <Box>
               {/* 문서 정보 */}
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  📄 문서 정보
-                </Typography>
                 {documentInfoItems.length > 0 ? (
-                  <Grid container spacing={2} sx={{ mt: 1 }}>
-                    {documentInfoColumns.map((columnItems, columnIndex) => (
-                      <Grid item xs={12} md={6} key={`document-info-column-${columnIndex}`}>
-                        <Stack spacing={1.25}>
-                          {columnItems.map((item, itemIndex) => (
-                            <Box
-                              key={`document-info-${columnIndex}-${itemIndex}`}
+                  <Accordion defaultExpanded disableGutters sx={{
+                    boxShadow: 'none',
+                    border: '1px solid',
+                    borderColor: 'grey.300',
+                    borderRadius: 2,
+                    '&:before': { display: 'none' },
+                    '& .MuiAccordionSummary-root': {
+                      px: 2,
+                      py: 1.5,
+                      borderBottom: '1px solid',
+                      borderColor: 'grey.200',
+                    },
+                    '& .MuiAccordionDetails-root': {
+                      px: 2,
+                      py: 1.5,
+                    },
+                  }}>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        📄 문서 정보
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+                          gap: 1.5,
+                        }}
+                      >
+                        {documentInfoItems.map((item, index) => (
+                          <Box
+                            key={`document-info-${index}`}
+                            sx={{
+                              p: 1,
+                              borderRadius: 1,
+                              bgcolor: 'grey.50',
+                              border: '1px solid',
+                              borderColor: 'grey.200',
+                              minHeight: 52,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.5,
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
                               sx={{
-                                p: 1.25,
-                                borderRadius: 1.5,
-                                bgcolor: 'grey.50',
-                                border: '1px solid',
-                                borderColor: 'grey.200',
-                                minHeight: 64,
+                                fontWeight: 700,
+                                letterSpacing: '0.03em',
+                                textTransform: 'uppercase',
                               }}
                             >
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{
-                                  fontWeight: 700,
-                                  letterSpacing: '0.04em',
-                                  textTransform: 'uppercase',
-                                }}
-                              >
-                                {item.label}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                color="text.primary"
-                                sx={{
-                                  mt: 0.5,
-                                  wordBreak: 'break-word',
-                                  whiteSpace: 'pre-wrap',
-                                }}
-                              >
-                                {item.value}
-                              </Typography>
-                            </Box>
-                          ))}
-                        </Stack>
-                      </Grid>
-                    ))}
-                  </Grid>
+                              {item.label}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.primary"
+                              sx={{
+                                wordBreak: 'break-word',
+                                whiteSpace: 'pre-wrap',
+                              }}
+                            >
+                              {item.value}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
                 ) : (
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     문서 정보를 불러올 수 없습니다.
