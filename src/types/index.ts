@@ -218,7 +218,9 @@ export interface QdrantCollectionSummary {
   name: string;
   status?: string;
   vector_count?: number;
+  points_count?: number; // 백엔드가 points_count를 사용
   indexed_vectors?: number;
+  is_active?: boolean;
   shard_count?: number;
   replication_factor?: number;
   size_mb?: number;
@@ -230,18 +232,52 @@ export interface QdrantCollectionSummary {
 export interface QdrantCollectionsOverview {
   total_count?: number;
   active_collection?: string | null;
+  active_collection_source?: string;
   items?: QdrantCollectionSummary[];
   collections?: QdrantCollectionSummary[];
+  list?: QdrantCollectionSummary[]; // status API의 collections.list
 }
 
 export interface QdrantCollectionDetail {
   name: string;
+  created_at?: string;
+  last_modified?: string;
   configuration?: Record<string, unknown>;
   vectors?: {
+    structure?: string;
     size?: number;
     distance?: string;
+    dense?: {
+      enabled?: boolean;
+      dimensions?: number;
+      distance_metric?: string;
+      count?: number;
+    };
+    sparse?: {
+      enabled?: boolean;
+      type?: string;
+      count?: number;
+    };
     on_disk?: boolean;
     [key: string]: unknown;
+  };
+  storage?: {
+    points_count?: number;
+    segments_count?: number;
+    memory_usage_mb?: number;
+    disk_usage_mb?: number;
+    payload_size_mb?: number;
+    vectors_size_mb?: number;
+  };
+  metadata_distribution?: {
+    file_types?: Record<string, number>;
+    total_unique_files?: number;
+    avg_chunks_per_file?: number;
+  };
+  performance?: {
+    avg_search_latency_ms?: number;
+    indexing_progress?: number;
+    optimization_status?: string;
   };
   statistics?: {
     vector_count?: number;
@@ -270,27 +306,75 @@ export interface QdrantResourceUsage {
   total_vectors?: number;
   total_memory_mb?: number;
   total_disk_mb?: number;
-  usage_percentage?: number;
+  usage_percentage?: number | {
+    collections?: number;
+    vectors?: number;
+    memory?: number;
+    disk?: number;
+  };
   memory_percent?: number;
   disk_percent?: number;
   cpu_percent?: number;
-  limits?: QdrantResourceLimits;
+  limits?: {
+    max_collections?: number;
+    max_vectors_per_collection?: number;
+    max_payload_size_mb?: number;
+    max_vector_dimensions?: number;
+    memory_mb?: number;
+    disk_mb?: number;
+    vector_limit?: number;
+    [key: string]: number | undefined;
+  };
   breakdown?: Record<string, unknown>;
 }
 
 export interface QdrantMetricsResponse {
+  status?: string;
+  timestamp?: string;
+  metrics?: {
+    operations?: {
+      searches_per_second?: number;
+      upserts_per_second?: number;
+      deletes_per_second?: number;
+      total_operations_24h?: number;
+      [key: string]: number | string | null | undefined;
+    };
+    performance?: {
+      p50_latency_ms?: number;
+      p95_latency_ms?: number;
+      p99_latency_ms?: number;
+      error_rate?: number;
+      [key: string]: number | string | null | undefined;
+    };
+    resources?: {
+      cpu_usage_percent?: number;
+      memory_usage_percent?: number;
+      disk_io_read_mbps?: number;
+      disk_io_write_mbps?: number;
+      network_in_mbps?: number;
+      network_out_mbps?: number;
+      [key: string]: number | string | null | undefined;
+    };
+  };
+  // 호환성을 위해 기존 필드도 유지
   operations?: Record<string, number | string | null>;
   performance?: Record<string, number | string | null>;
   resources?: Record<string, number | string | null>;
-  timestamp?: string;
 }
 
 export interface QdrantStatusResponse {
+  status?: string;
+  timestamp?: string;
   cluster?: QdrantClusterInfo;
   collections?: QdrantCollectionsOverview;
   active_collection_details?: QdrantCollectionDetail | null;
   resource_usage?: QdrantResourceUsage;
-  health_checks?: QdrantHealthCheck[];
+  health_checks?: QdrantHealthCheck[] | {
+    overall_status?: string;
+    checks?: Record<string, string>;
+    warnings?: string[];
+    recommendations?: string[];
+  };
   metadata?: Record<string, unknown>;
 }
 
