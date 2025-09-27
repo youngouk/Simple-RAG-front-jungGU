@@ -64,13 +64,66 @@ export interface ChatMessage {
   sources?: Source[];
 }
 
+export interface SourceAdditionalMetadata {
+  folder?: string;
+  full_path?: string;
+  uploaded_at?: string;
+  batch_processed?: boolean;
+  bm42_idf?: boolean;
+  doc_type?: string;
+  table_count?: number;
+  has_images?: boolean;
+  data_root?: string;
+  priority_level?: string;
+  priority_numeric?: number;
+  document_series?: string;
+  doc_category?: string;
+  law_id?: string;
+  law_serial_number?: string;
+  law_name?: string;
+  law_slug?: string;
+  agency?: string;
+  legal_department?: string;
+  agency_phone?: string;
+  enacted_date?: string;
+  effective_date?: string;
+  promulgation_number?: string;
+  revision_type?: string;
+  revision_reason?: string;
+  article_count?: number;
+  has_appendix?: boolean;
+  appendix_promulgation_date?: string;
+  display_title?: string;
+  normalized_filename?: string;
+  file_url_status?: string;
+  multi_query_count?: number;
+  score_details?: {
+    avg_score?: number;
+    max_score?: number;
+    diversity_bonus?: number;
+  };
+}
+
 export interface Source {
   id: number;
   document: string;
-  page?: number;
-  chunk?: number;
+  page?: number | null;
+  chunk?: number | null;
   relevance: number;
   content_preview: string;
+  file_type?: string | null;
+  file_path?: string | null;
+  file_size?: number | null;
+  total_chunks?: number | null;
+  file_hash?: string | null;
+  load_timestamp?: string | null;
+  sheet_name?: string | null;
+  format?: string | null;
+  json_type?: string | null;
+  item_index?: number | null;
+  rerank_method?: string | null;
+  original_score?: number | null;
+  additional_metadata?: SourceAdditionalMetadata | null;
 }
 
 export interface ChatResponse {

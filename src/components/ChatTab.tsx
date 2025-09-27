@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Grid,
 } from '@mui/material';
 import {
   Send,
@@ -43,7 +44,14 @@ import {
   BarChart,
   Close,
 } from '@mui/icons-material';
-import { ChatMessage, ToastMessage, Source as SourceType, SessionInfo, ChatHistoryEntry } from '../types';
+import {
+  ChatMessage,
+  ToastMessage,
+  Source as SourceType,
+  SessionInfo,
+  ChatHistoryEntry,
+  SourceAdditionalMetadata,
+} from '../types';
 import { chatAPI } from '../services/api';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
@@ -283,6 +291,11 @@ const mapHistoryEntryToChatMessage = (entry: ChatHistoryEntry, index: number): C
   };
 };
 
+interface DocumentInfoItem {
+  label: string;
+  value: string;
+}
+
 interface ChatTabProps {
   showToast: (message: Omit<ToastMessage, 'id'>) => void;
 }
@@ -320,6 +333,92 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
   // 모달 상태 관리
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedChunk, setSelectedChunk] = useState<SourceType | null>(null);
+
+  const documentInfoItems = useMemo<DocumentInfoItem[]>(() => {
+    if (!selectedChunk) {
+      return [];
+    }
+
+    const meta = (selectedChunk.additional_metadata ?? {}) as SourceAdditionalMetadata;
+
+    const formatPrimitive = (value: unknown): string => {
+      if (value === undefined || value === null) {
+        return 'N/A';
+      }
+      if (typeof value === 'boolean') {
+        return value ? '예' : '아니오';
+      }
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? value.toLocaleString() : String(value);
+      }
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
+          return 'N/A';
+        }
+        return value
+          .map((entryValue) =>
+            typeof entryValue === 'string'
+              ? entryValue
+              : typeof entryValue === 'number'
+                ? entryValue.toLocaleString()
+                : JSON.stringify(entryValue)
+          )
+          .join(', ');
+      }
+      const stringified = String(value);
+      return stringified.trim().length > 0 ? stringified : 'N/A';
+    };
+
+    const formatDate = (value?: string | null): string => {
+      if (!value) {
+        return 'N/A';
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toISOString().split('T')[0];
+    };
+
+    const similarity = typeof selectedChunk.relevance === 'number'
+      ? `${(selectedChunk.relevance * 100).toFixed(2)}%`
+      : undefined;
+
+    const items: DocumentInfoItem[] = [
+      { label: '문서 ID', value: formatPrimitive(selectedChunk.id) },
+      { label: '문서 파일명', value: formatPrimitive(selectedChunk.document) },
+      { label: '표시 제목', value: formatPrimitive(meta.display_title ?? meta.law_name) },
+      { label: '법령 ID', value: formatPrimitive(meta.law_id) },
+      { label: '기관', value: formatPrimitive(meta.agency) },
+      { label: '소관 부서', value: formatPrimitive(meta.legal_department) },
+      { label: '기관 연락처', value: formatPrimitive(meta.agency_phone) },
+      { label: '공포일자', value: formatPrimitive(formatDate(meta.enacted_date)) },
+      { label: '시행일자', value: formatPrimitive(formatDate(meta.effective_date)) },
+      { label: '공포번호', value: formatPrimitive(meta.promulgation_number) },
+      { label: '개정 유형', value: formatPrimitive(meta.revision_type) },
+      { label: '우선순위', value: formatPrimitive(meta.priority_level) },
+      { label: '청크 번호', value: formatPrimitive(selectedChunk.chunk !== null && selectedChunk.chunk !== undefined ? `#${selectedChunk.chunk}` : null) },
+      { label: '페이지', value: formatPrimitive(selectedChunk.page) },
+      { label: '유사도', value: formatPrimitive(similarity) },
+      { label: '총 청크 수', value: formatPrimitive(selectedChunk.total_chunks) },
+      { label: '원본 점수', value: formatPrimitive(selectedChunk.original_score) },
+      { label: '재순위 방법', value: formatPrimitive(selectedChunk.rerank_method) },
+      { label: '업로드 일시', value: formatPrimitive(meta.uploaded_at) },
+      { label: '파일 전체 경로', value: formatPrimitive(meta.full_path ?? selectedChunk.file_path) },
+    ];
+
+    return items;
+  }, [selectedChunk]);
+
+  const documentInfoColumns = useMemo<[DocumentInfoItem[], DocumentInfoItem[]]>(() => {
+    if (documentInfoItems.length === 0) {
+      return [[], []];
+    }
+    return [documentInfoItems.slice(0, 10), documentInfoItems.slice(10, 20)];
+  }, [documentInfoItems]);
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -1575,26 +1674,56 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                 <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                   📄 문서 정보
                 </Typography>
-                <Box sx={{ pl: 2, pt: 1 }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>문서명:</strong> {selectedChunk.document || '알 수 없는 문서'}
+                {documentInfoItems.length > 0 ? (
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    {documentInfoColumns.map((columnItems, columnIndex) => (
+                      <Grid item xs={12} md={6} key={`document-info-column-${columnIndex}`}>
+                        <Stack spacing={1.25}>
+                          {columnItems.map((item, itemIndex) => (
+                            <Box
+                              key={`document-info-${columnIndex}-${itemIndex}`}
+                              sx={{
+                                p: 1.25,
+                                borderRadius: 1.5,
+                                bgcolor: 'grey.50',
+                                border: '1px solid',
+                                borderColor: 'grey.200',
+                                minHeight: 64,
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{
+                                  fontWeight: 700,
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {item.label}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.primary"
+                                sx={{
+                                  mt: 0.5,
+                                  wordBreak: 'break-word',
+                                  whiteSpace: 'pre-wrap',
+                                }}
+                              >
+                                {item.value}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    문서 정보를 불러올 수 없습니다.
                   </Typography>
-                  {selectedChunk.chunk && (
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>청크 번호:</strong> #{selectedChunk.chunk}
-                    </Typography>
-                  )}
-                  {selectedChunk.page && (
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>페이지:</strong> {selectedChunk.page}
-                    </Typography>
-                  )}
-                  {typeof selectedChunk.relevance === 'number' && (
-                    <Typography variant="body2" sx={{ mb: 1 }}>
-                      <strong>유사도:</strong> {(selectedChunk.relevance * 100).toFixed(2)}%
-                    </Typography>
-                  )}
-                </Box>
+                )}
               </Box>
 
               <Divider sx={{ mb: 3 }} />
