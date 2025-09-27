@@ -174,35 +174,135 @@ export interface SessionInfo {
   timestamp: string;
 }
 
-export interface Stats {
-  uptime: number;
-  uptime_human: string;
-  cpu_percent: number;
-  memory_usage: {
-    total: number;
-    available: number;
-    used: number;
-    percentage: number;
-    total_gb: number;
-    used_gb: number;
-    available_gb: number;
-  };
-  disk_usage: {
-    total: number;
-    used: number;
-    free: number;
-    percentage: number;
-    total_gb: number;
-    used_gb: number;
-    free_gb: number;
-  };
-  system_info: {
-    platform: string;
-    python_version: string;
-    cpu_count: number;
-    boot_time: string;
-  };
+// Qdrant Monitoring Types
+export interface QdrantHealthResponse {
+  status: string;
+  message?: string;
+  timestamp?: string;
 }
+
+export interface QdrantHealthCheck {
+  name: string;
+  status: string;
+  message?: string;
+  latency_ms?: number;
+  last_checked?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface QdrantClusterNode {
+  id?: string;
+  name?: string;
+  role?: string;
+  status?: string;
+  version?: string;
+  uptime_seconds?: number;
+  uptime_human?: string;
+  region?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface QdrantClusterInfo {
+  name?: string;
+  status?: string;
+  version?: string;
+  region?: string;
+  node_count?: number;
+  created_at?: string;
+  last_updated?: string;
+  nodes?: QdrantClusterNode[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface QdrantCollectionSummary {
+  name: string;
+  status?: string;
+  vector_count?: number;
+  indexed_vectors?: number;
+  shard_count?: number;
+  replication_factor?: number;
+  size_mb?: number;
+  last_update?: string;
+  payload_schema?: Record<string, unknown>;
+  info?: Record<string, unknown>;
+}
+
+export interface QdrantCollectionsOverview {
+  total_count?: number;
+  active_collection?: string | null;
+  items?: QdrantCollectionSummary[];
+  collections?: QdrantCollectionSummary[];
+}
+
+export interface QdrantCollectionDetail {
+  name: string;
+  configuration?: Record<string, unknown>;
+  vectors?: {
+    size?: number;
+    distance?: string;
+    on_disk?: boolean;
+    [key: string]: unknown;
+  };
+  statistics?: {
+    vector_count?: number;
+    indexed_vectors?: number;
+    points_count?: number;
+    segments_count?: number;
+    [key: string]: unknown;
+  };
+  status?: string;
+  payload_schema?: Record<string, unknown>;
+  hnsw_config?: Record<string, unknown>;
+  optimizers_config?: Record<string, unknown>;
+  params?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface QdrantResourceLimits {
+  memory_mb?: number;
+  disk_mb?: number;
+  vector_limit?: number;
+  [key: string]: number | undefined;
+}
+
+export interface QdrantResourceUsage {
+  total_vectors?: number;
+  total_memory_mb?: number;
+  total_disk_mb?: number;
+  usage_percentage?: number;
+  memory_percent?: number;
+  disk_percent?: number;
+  cpu_percent?: number;
+  limits?: QdrantResourceLimits;
+  breakdown?: Record<string, unknown>;
+}
+
+export interface QdrantMetricsResponse {
+  operations?: Record<string, number | string | null>;
+  performance?: Record<string, number | string | null>;
+  resources?: Record<string, number | string | null>;
+  timestamp?: string;
+}
+
+export interface QdrantStatusResponse {
+  cluster?: QdrantClusterInfo;
+  collections?: QdrantCollectionsOverview;
+  active_collection_details?: QdrantCollectionDetail | null;
+  resource_usage?: QdrantResourceUsage;
+  health_checks?: QdrantHealthCheck[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface QdrantCollectionsResponse {
+  collections: QdrantCollectionSummary[];
+  total_count?: number;
+  active_collection?: string | null;
+}
+
+export type QdrantCollectionDetailResponse = QdrantCollectionDetail;
+
+export type QdrantResourceUsageResponse = QdrantResourceUsage;
 
 // UI State Types
 export interface ToastMessage {

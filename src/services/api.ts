@@ -7,7 +7,6 @@ import {
   UploadStatus,
   ChatResponse,
   ChatHistoryEntry,
-  Stats,
   SessionInfo,
 } from '../types';
 
@@ -271,15 +270,6 @@ export const chatAPI = {
   // 세션 정보 조회
   getSessionInfo: (sessionId: string) =>
     api.get<SessionInfo>(`/api/chat/session/${sessionId}/info`),
-};
-
-// Stats API
-export const statsAPI = {
-  // 전체 통계 조회
-  getStats: () => api.get<Stats>('/stats'),
-
-  // 문서 통계 조회
-  getDocumentStats: () => api.get<Stats['documents']>('/api/upload/stats'),
 };
 
 export default api;

@@ -1,674 +1,635 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
-  Grid,
-  Paper,
-  Typography,
   Card,
   CardContent,
-  IconButton,
-  Tooltip,
   Chip,
   Divider,
-  Alert,
-  Collapse,
+  Grid,
+  IconButton,
+  LinearProgress,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
-  ListItemIcon,
-  Switch,
-  FormControlLabel,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Badge,
-  LinearProgress,
+  Paper,
+  Stack,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import {
-  Speed,
-  CheckCircle,
-  Memory,
   Refresh,
-  AccessTime,
-  CloudCircle,
-  NetworkCheck,
-  BugReport,
-  ExpandMore,
-  Api,
-  Code,
-  Timeline,
-  DataUsage,
-  Computer,
-  Dns,
+  CheckCircle,
+  WarningAmber,
+  Storage,
+  Hub,
+  ScatterPlot,
+  Memory,
 } from '@mui/icons-material';
-import { healthAPI, statsAPI } from '../services/api';
+import { qdrantService } from '../services/qdrantService';
+import {
+  QdrantStatusResponse,
+  QdrantMetricsResponse,
+  QdrantResourceUsageResponse,
+  QdrantHealthResponse,
+  QdrantCollectionDetailResponse,
+  QdrantCollectionsResponse,
+  QdrantCollectionSummary,
+  QdrantHealthCheck,
+} from '../types';
 
-// 타입 정의
-interface HealthStatus {
-  status: string;
-  timestamp: string;
-  uptime: number;
-  version: string;
-  environment: string;
-}
+const formatNumber = (value?: number | null, options?: Intl.NumberFormatOptions) => {
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return '-';
+  }
+  return value.toLocaleString(undefined, options);
+};
 
-interface StatsData {
-  uptime: number;
-  uptime_human: string;
-  cpu_percent: number;
-  memory_usage: {
-    total: number;
-    available: number;
-    used: number;
-    percentage: number;
-    total_gb: number;
-    used_gb: number;
-    available_gb: number;
-  };
-  disk_usage: {
-    total: number;
-    used: number;
-    free: number;
-    percentage: number;
-    total_gb: number;
-    used_gb: number;
-    free_gb: number;
-  };
-  system_info: {
-    platform: string;
-    python_version: string;
-    cpu_count: number;
-    boot_time: string;
-  };
-}
+const formatPercent = (value?: number | null) => {
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return '-';
+  }
+  return `${value.toFixed(1)}%`;
+};
 
-interface CombinedStatus {
-  health: HealthStatus;
-  stats: StatsData;
-}
+const formatMbToGb = (value?: number | null) => {
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return '-';
+  }
+  return `${(value / 1024).toFixed(1)} GB`;
+};
 
-interface ApiCallLog {
-  timestamp: string;
-  endpoint: string;
-  data: unknown;
-  error: string | null;
-  status: 'success' | 'error';
+const clampPercentage = (value?: number | null) => {
+  if (value === undefined || value === null || Number.isNaN(value)) {
+    return undefined;
+  }
+  return Math.min(Math.max(value, 0), 100);
+};
+
+const toDisplayStatus = (status?: string) => {
+  if (!status) {
+    return '-';
+  }
+  return status.toUpperCase();
+};
+
+const getStatusChipColor = (status?: string) => {
+  const normalized = status?.toLowerCase();
+  if (!normalized) {
+    return 'default';
+  }
+  if (['healthy', 'ready', 'ok', 'online', 'active'].includes(normalized)) {
+    return 'success';
+  }
+  if (['warning', 'degraded'].includes(normalized)) {
+    return 'warning';
+  }
+  if (['unhealthy', 'error', 'offline', 'failed'].includes(normalized)) {
+    return 'error';
+  }
+  return 'default';
+};
+
+interface FetchCollectionOptions {
+  suppressLoading?: boolean;
 }
 
 export const StatsTab: React.FC = () => {
-  const [systemStatus, setSystemStatus] = useState<CombinedStatus | null>(null);
+  const [statusData, setStatusData] = useState<QdrantStatusResponse | null>(null);
+  const [metrics, setMetrics] = useState<QdrantMetricsResponse | null>(null);
+  const [resourceUsage, setResourceUsage] = useState<QdrantResourceUsageResponse | null>(null);
+  const [health, setHealth] = useState<QdrantHealthResponse | null>(null);
+  const [collectionsOverview, setCollectionsOverview] = useState<QdrantCollectionsResponse | null>(null);
+  const [collectionDetails, setCollectionDetails] = useState<QdrantCollectionDetailResponse | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
-  const [apiCalls, setApiCalls] = useState<Record<string, ApiCallLog>>({});
+  const [collectionLoading, setCollectionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // API 호출 로거 
-  const logApiCall = useCallback((endpoint: string, data: unknown, error?: Error) => {
-    const timestamp = new Date().toISOString();
-    const logEntry = {
-      timestamp,
-      endpoint,
-      data: error ? null : data,
-      error: error?.message || null,
-      status: error ? 'error' : 'success'
-    };
-    
-    setApiCalls(prev => ({
-      ...prev,
-      [endpoint]: logEntry
-    }));
-  }, []);
+  const effectiveResourceUsage = useMemo(() => {
+    if (resourceUsage) {
+      return resourceUsage;
+    }
+    return statusData?.resource_usage ?? null;
+  }, [resourceUsage, statusData]);
 
-  const fetchSystemStats = useCallback(async () => {
+  const collectionSummaries = useMemo<QdrantCollectionSummary[]>(() => {
+    const fromStatus = statusData?.collections;
+    if (fromStatus) {
+      if (Array.isArray(fromStatus.items)) {
+        return fromStatus.items as QdrantCollectionSummary[];
+      }
+      if (Array.isArray(fromStatus.collections)) {
+        return fromStatus.collections as QdrantCollectionSummary[];
+      }
+    }
+    if (Array.isArray(collectionsOverview?.collections)) {
+      return collectionsOverview.collections;
+    }
+    return [];
+  }, [collectionsOverview, statusData]);
+
+  const fetchCollectionDetails = useCallback(
+    async (collectionName: string, options: FetchCollectionOptions = {}) => {
+      if (!collectionName) {
+        return;
+      }
+
+      setError(null);
+
+      if (!options.suppressLoading) {
+        setCollectionLoading(true);
+      }
+
+      try {
+        const response = await qdrantService.getCollectionDetail(collectionName);
+        setCollectionDetails(response.data);
+        setSelectedCollection(collectionName);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : '컬렉션 정보를 불러오는 중 오류가 발생했습니다.';
+        setError(message);
+      } finally {
+        if (!options.suppressLoading) {
+          setCollectionLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      console.log('🔄 시스템 통계 데이터 로딩 중...');
-      
-      // Health 상태와 Stats 데이터 동시 조회
-      const [healthResponse, statsResponse] = await Promise.all([
-        healthAPI.check(),
-        statsAPI.getStats()
+      const [statusResponse, metricsResponse, collectionsResponse, resourceResponse, healthResponse] = await Promise.all([
+        qdrantService.getStatus(),
+        qdrantService.getMetrics(),
+        qdrantService.getCollections(),
+        qdrantService.getResourceUsage(),
+        qdrantService.getHealth(),
       ]);
-      
-      const combinedData = {
-        health: healthResponse.data,
-        stats: statsResponse.data
-      };
-      
-      logApiCall('/health', healthResponse.data);
-      logApiCall('/stats', statsResponse.data);
-      setSystemStatus(combinedData);
-      
-      console.log('✅ 시스템 상태 데이터 로드 완료:', statusData);
-      
+
+      setStatusData(statusResponse.data);
+      setMetrics(metricsResponse.data);
+      setCollectionsOverview(collectionsResponse.data);
+      setResourceUsage(resourceResponse.data);
+      setHealth(healthResponse.data);
+
+      const detailFromStatus = statusResponse.data?.active_collection_details;
+      if (detailFromStatus) {
+        setCollectionDetails(detailFromStatus);
+        setSelectedCollection(detailFromStatus.name ?? null);
+      } else {
+        const activeName =
+          statusResponse.data?.collections?.active_collection ?? collectionsResponse.data?.active_collection ?? null;
+        setSelectedCollection(activeName ?? null);
+        if (activeName) {
+          await fetchCollectionDetails(activeName, { suppressLoading: true });
+        } else {
+          setCollectionDetails(null);
+        }
+      }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
-      console.error('❌ 통계 데이터 로딩 실패:', err);
-      logApiCall('/stats', null, err instanceof Error ? err : new Error(String(err)));
-      setError(errorMessage);
+      const message =
+        err instanceof Error ? err.message : 'Qdrant 상태 정보를 불러오는 중 문제가 발생했습니다.';
+      setError(message);
     } finally {
       setLoading(false);
     }
-  }, [logApiCall]);
+  }, [fetchCollectionDetails]);
 
   useEffect(() => {
-    fetchSystemStats();
-    
-    // 30초마다 자동 갱신
-    const interval = setInterval(fetchSystemStats, 30000);
+    fetchAll();
+    const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
-  }, [fetchSystemStats]);
+  }, [fetchAll]);
 
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'healthy':
-      case 'active':
-      case 'running':
-        return 'success';
-      case 'warning':
-        return 'warning';
-      case 'error':
-      case 'failed':
-        return 'error';
-      default:
-        return 'default';
+  const totalCollections = statusData?.collections?.total_count ?? collectionsOverview?.total_count;
+  const activeCollection = selectedCollection ?? statusData?.collections?.active_collection ?? '-';
+  const totalVectors = effectiveResourceUsage?.total_vectors;
+  const cpuUsage = useMemo(() => {
+    if (typeof effectiveResourceUsage?.cpu_percent === 'number') {
+      return effectiveResourceUsage.cpu_percent;
     }
-  };
+    const raw = metrics?.resources
+      ? (metrics.resources['cpu_percent'] as number | string | null | undefined)
+      : undefined;
+    return typeof raw === 'number' ? raw : undefined;
+  }, [effectiveResourceUsage, metrics]);
 
   return (
-    <Box sx={{ p: 3, maxWidth: '1400px', mx: 'auto' }}>
-      {/* 헤더 */}
-      <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        alignItems="center" 
-        mb={4}
+    <Box sx={{ p: 3, maxWidth: '1200px', mx: 'auto' }}>
+      <Paper
         sx={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderRadius: 3,
           p: 3,
-          color: 'white'
+          mb: 3,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #2b6cb0 0%, #4c51bf 100%)',
+          color: 'white',
         }}
+        elevation={0}
       >
         <Box>
-          <Typography variant="h4" fontWeight="600" gutterBottom>
-            🔧 시스템 통계
+          <Typography variant="h5" fontWeight={600} gutterBottom>
+            Qdrant 상태 모니터링
           </Typography>
-          <Typography variant="body1" sx={{ opacity: 0.9 }}>
-            실시간 시스템 상태 및 성능 모니터링
+          <Typography variant="body2" sx={{ opacity: 0.85 }}>
+            백엔드 Qdrant 클러스터의 상태와 리소스 사용량을 확인합니다.
           </Typography>
         </Box>
-        
-        <Box display="flex" alignItems="center" gap={2}>
-          <FormControlLabel
-            control={
-              <Switch 
-                checked={debugMode} 
-                onChange={(e) => setDebugMode(e.target.checked)}
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: 'white',
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                  },
-                }}
-              />
-            }
-            label={
-              <Box display="flex" alignItems="center" gap={1}>
-                <BugReport />
-                <Typography variant="body2">디버그 모드</Typography>
-              </Box>
-            }
-            sx={{ color: 'white' }}
-          />
-          
-          <Tooltip title="새로고침">
-            <IconButton 
-              onClick={fetchSystemStats} 
-              disabled={loading}
-              sx={{ 
-                color: 'white',
-                bgcolor: 'rgba(255, 255, 255, 0.1)',
-                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-              }}
-            >
+        <Stack direction="row" spacing={1} alignItems="center">
+          {health?.status && (
+            <Chip
+              icon={health.status.toLowerCase() === 'healthy' ? <CheckCircle /> : <WarningAmber />}
+              label={`연결 상태: ${toDisplayStatus(health.status)}`}
+              color={getStatusChipColor(health.status)}
+              sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'inherit' }}
+            />
+          )}
+          <Tooltip title="데이터 새로고침">
+            <IconButton onClick={fetchAll} disabled={loading} sx={{ color: 'white' }}>
               <Refresh />
             </IconButton>
           </Tooltip>
-        </Box>
-      </Box>
+        </Stack>
+      </Paper>
 
-      {/* 에러 알림 */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
-          <Typography variant="body2">{error}</Typography>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
         </Alert>
       )}
 
-      {/* 로딩 상태 */}
       {loading && (
         <Box sx={{ mb: 3 }}>
-          <LinearProgress sx={{ borderRadius: 1 }} />
+          <LinearProgress />
         </Box>
       )}
 
-      {/* 시스템 상태 카드들 */}
-      {systemStatus && (
-        <>
-          {/* 상태 개요 */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card 
-                elevation={0}
-                sx={{ 
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 25px rgba(102, 126, 234, 0.15)'
-                  }
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor: 'success.light',
-                        color: 'success.dark'
-                      }}
-                    >
-                      <CheckCircle fontSize="large" />
-                    </Box>
-                    <Box>
-                      <Typography color="text.secondary" variant="body2">
-                        시스템 상태
-                      </Typography>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="h5" fontWeight="600">
-                          {systemStatus.health.status}
-                        </Typography>
-                        <Chip 
-                          label={systemStatus.health.status}
-                          color={getStatusColor(systemStatus.health.status)}
-                          size="small"
-                        />
-                      </Box>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <CheckCircle color="success" fontSize="large" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    현재 상태
+                  </Typography>
+                  <Typography variant="h6" fontWeight={600}>
+                    {toDisplayStatus(statusData?.cluster?.status ?? health?.status)}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
-              <Card 
-                elevation={0}
-                sx={{ 
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 25px rgba(118, 75, 162, 0.15)'
-                  }
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor: 'info.light',
-                        color: 'info.dark'
-                      }}
-                    >
-                      <AccessTime fontSize="large" />
-                    </Box>
-                    <Box>
-                      <Typography color="text.secondary" variant="body2">
-                        가동시간
-                      </Typography>
-                      <Typography variant="h5" fontWeight="600">
-                        {systemStatus.stats.uptime_human}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Storage color="primary" fontSize="large" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    총 컬렉션 수
+                  </Typography>
+                  <Typography variant="h6" fontWeight={600}>
+                    {formatNumber(totalCollections)}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
-              <Card 
-                elevation={0}
-                sx={{ 
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 25px rgba(255, 152, 0, 0.15)'
-                  }
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor: 'warning.light',
-                        color: 'warning.dark'
-                      }}
-                    >
-                      <Memory fontSize="large" />
-                    </Box>
-                    <Box>
-                      <Typography color="text.secondary" variant="body2">
-                        메모리 사용량
-                      </Typography>
-                      <Typography variant="h5" fontWeight="600">
-                        {systemStatus.stats.memory_usage.used_gb.toFixed(1)} GB
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        사용률: {systemStatus.stats.memory_usage.percentage.toFixed(1)}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Hub color="info" fontSize="large" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    활성 컬렉션
+                  </Typography>
+                  <Typography variant="h6" fontWeight={600}>
+                    {activeCollection || '-'}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
-              <Card 
-                elevation={0}
-                sx={{ 
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 3,
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 25px rgba(76, 175, 80, 0.15)'
-                  }
-                }}
-              >
-                <CardContent>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor: 'primary.light',
-                        color: 'primary.dark'
-                      }}
-                    >
-                      <Speed fontSize="large" />
-                    </Box>
-                    <Box>
-                      <Typography color="text.secondary" variant="body2">
-                        CPU 사용률
-                      </Typography>
-                      <Typography variant="h5" fontWeight="600">
-                        {systemStatus.stats.cpu_percent.toFixed(1)}%
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        코어: {systemStatus.stats.system_info.cpu_count}개
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <ScatterPlot color="secondary" fontSize="large" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    총 벡터 수
+                  </Typography>
+                  <Typography variant="h6" fontWeight={600}>
+                    {formatNumber(totalVectors)}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-          {/* 시스템 정보 */}
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              p: 3, 
-              mb: 4, 
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 3
-            }}
-          >
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Computer color="primary" />
-              시스템 정보
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={3}>
-                <Box textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    플랫폼
-                  </Typography>
-                  <Typography variant="h6" fontWeight="600">
-                    {systemStatus.stats.system_info.platform}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Box textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    Python 버전
-                  </Typography>
-                  <Typography variant="h6" fontWeight="600">
-                    {systemStatus.stats.system_info.python_version}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Box textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    환경
-                  </Typography>
-                  <Typography variant="h6" fontWeight="600">
-                    {systemStatus.health.environment}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Box textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    버전
-                  </Typography>
-                  <Typography variant="h6" fontWeight="600">
-                    {systemStatus.health.version}
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </Paper>
-
-          {/* 디스크 사용량 */}
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              p: 3, 
-              mb: 4, 
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 3
-            }}
-          >
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Timeline color="primary" />
-              디스크 사용량
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
-                <Box textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    전체 용량
-                  </Typography>
-                  <Typography variant="h4" color="primary" fontWeight="600">
-                    {systemStatus.stats.disk_usage.total_gb.toFixed(0)} GB
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Box textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    사용된 용량
-                  </Typography>
-                  <Typography variant="h4" color="warning.main" fontWeight="600">
-                    {systemStatus.stats.disk_usage.used_gb.toFixed(0)} GB
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Box textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    사용률
-                  </Typography>
-                  <Typography variant="h4" color="info.main" fontWeight="600">
-                    {systemStatus.stats.disk_usage.percentage.toFixed(1)}%
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </Paper>
-        </>
-      )}
-
-      {/* 디버그 정보 */}
-      <Collapse in={debugMode}>
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 3, 
-            mb: 3, 
-            border: '1px solid',
-            borderColor: 'warning.light',
-            borderRadius: 3,
-            bgcolor: 'warning.50'
-          }}
-        >
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <BugReport color="warning" />
-            디버그 정보
+      {effectiveResourceUsage && (
+        <Paper sx={{ p: 3, mb: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+          <Typography variant="h6" gutterBottom>
+            리소스 사용량
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMore />}>
-              <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Api />
-                API 호출 로그
-                <Badge badgeContent={Object.keys(apiCalls).length} color="primary" />
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Memory color="primary" />
+                  <Typography variant="body2">메모리</Typography>
+                </Stack>
+                <Typography variant="h6" fontWeight={600}>
+                  {formatMbToGb(effectiveResourceUsage.total_memory_mb)}
+                </Typography>
+                {clampPercentage(effectiveResourceUsage.memory_percent ?? effectiveResourceUsage.usage_percentage) !==
+                  undefined && (
+                  <Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={
+                        clampPercentage(
+                          effectiveResourceUsage.memory_percent ?? effectiveResourceUsage.usage_percentage,
+                        )
+                      }
+                      sx={{ borderRadius: 1 }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {formatPercent(
+                        effectiveResourceUsage.memory_percent ?? effectiveResourceUsage.usage_percentage,
+                      )}
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Storage color="primary" />
+                  <Typography variant="body2">디스크</Typography>
+                </Stack>
+                <Typography variant="h6" fontWeight={600}>
+                  {formatMbToGb(effectiveResourceUsage.total_disk_mb)}
+                </Typography>
+                {clampPercentage(effectiveResourceUsage.disk_percent) !== undefined && (
+                  <Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={clampPercentage(effectiveResourceUsage.disk_percent)}
+                      sx={{ borderRadius: 1 }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {formatPercent(effectiveResourceUsage.disk_percent)}
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CheckCircle color="success" />
+                  <Typography variant="body2">CPU</Typography>
+                </Stack>
+                <Typography variant="h6" fontWeight={600}>
+                  {formatPercent(cpuUsage)}
+                </Typography>
+                {clampPercentage(cpuUsage) !== undefined && (
+                  <Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={clampPercentage(cpuUsage)}
+                      sx={{ borderRadius: 1 }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {formatPercent(cpuUsage)}
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
+      {metrics && (
+        <Paper sx={{ p: 3, mb: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+          <Typography variant="h6" gutterBottom>
+            실시간 메트릭
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <Grid container spacing={2}>
+            {['operations', 'performance', 'resources'].map((key) => {
+              const data = metrics[key as keyof QdrantMetricsResponse] as Record<string, number | string | null> | undefined;
+              const entries = data ? Object.entries(data) : [];
+              return (
+                <Grid item xs={12} md={4} key={key}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    {key === 'operations' && '작업 처리량'}
+                    {key === 'performance' && '성능'}
+                    {key === 'resources' && '리소스'}
+                  </Typography>
+                  <List dense disablePadding>
+                    {entries.length > 0 ? (
+                      entries.map(([entryKey, value]) => (
+                        <ListItem key={entryKey} disableGutters>
+                          <ListItemText
+                            primary={entryKey.replace(/_/g, ' ')}
+                            secondary={
+                              typeof value === 'number' ? value.toLocaleString() : value ?? '데이터 없음'
+                            }
+                          />
+                        </ListItem>
+                      ))
+                    ) : (
+                      <ListItem disableGutters>
+                        <ListItemText primary="데이터 없음" />
+                      </ListItem>
+                    )}
+                  </List>
+                </Grid>
+              );
+            })}
+          </Grid>
+        </Paper>
+      )}
+
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+            <Typography variant="h6" gutterBottom>
+              컬렉션 목록
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            {collectionSummaries.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                등록된 컬렉션이 없습니다.
               </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <List dense>
-                {Object.entries(apiCalls).map(([endpoint, log]) => (
-                  <ListItem key={endpoint}>
-                    <ListItemIcon>
-                      <Chip 
-                        label={log.status}
-                        color={log.status === 'success' ? 'success' : 'error'}
-                        size="small"
-                      />
-                    </ListItemIcon>
+            ) : (
+              <List dense sx={{ maxHeight: 360, overflow: 'auto' }}>
+                {collectionSummaries.map((collection) => (
+                  <ListItemButton
+                    key={collection.name}
+                    onClick={() => fetchCollectionDetails(collection.name)}
+                    selected={collection.name === selectedCollection}
+                    divider
+                  >
                     <ListItemText
-                      primary={endpoint}
+                      primary={collection.name}
                       secondary={
-                        <Box>
-                          <Typography variant="caption" display="block">
-                            시간: {new Date(log.timestamp).toLocaleTimeString()}
+                        <Stack direction="row" spacing={1} divider={<Divider orientation="vertical" flexItem />}>
+                          <Typography variant="caption" color="text.secondary">
+                            상태: {toDisplayStatus(collection.status)}
                           </Typography>
-                          {log.error && (
-                            <Typography variant="caption" color="error" display="block">
-                              오류: {log.error}
+                          {collection.vector_count !== undefined && (
+                            <Typography variant="caption" color="text.secondary">
+                              벡터 {formatNumber(collection.vector_count)}
                             </Typography>
                           )}
-                        </Box>
+                          {collection.size_mb !== undefined && (
+                            <Typography variant="caption" color="text.secondary">
+                              {`${formatNumber(collection.size_mb)} MB`}
+                            </Typography>
+                          )}
+                        </Stack>
                       }
                     />
-                  </ListItem>
+                  </ListItemButton>
                 ))}
               </List>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMore />}>
-              <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Code />
-                시스템 로그
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Box
-                sx={{
-                  bgcolor: 'grey.900',
-                  color: 'grey.100',
-                  p: 2,
-                  borderRadius: 1,
-                  fontFamily: 'monospace',
-                  fontSize: '0.8rem',
-                  maxHeight: 300,
-                  overflow: 'auto'
-                }}
-              >
-                {systemStatus && (
-                  <pre>
-                    {JSON.stringify(systemStatus, null, 2)}
-                  </pre>
+            )}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={7}>
+          <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+              <Typography variant="h6">컬렉션 상세</Typography>
+              {selectedCollection && (
+                <Chip label={selectedCollection} color="primary" variant="outlined" />
+              )}
+            </Stack>
+            <Divider sx={{ mb: 2 }} />
+            {collectionLoading && <LinearProgress sx={{ mb: 2 }} />}
+            {collectionDetails ? (
+              <Stack spacing={2}>
+                <Grid container spacing={2}>
+                  {[
+                    { label: '상태', value: toDisplayStatus(collectionDetails.status) },
+                    { label: '벡터 차원', value: collectionDetails.vectors?.size },
+                    { label: '거리 함수', value: collectionDetails.vectors?.distance },
+                    { label: '포인트 수', value: collectionDetails.statistics?.vector_count },
+                    { label: '색인된 벡터', value: collectionDetails.statistics?.indexed_vectors },
+                    { label: '세그먼트 수', value: collectionDetails.statistics?.segments_count },
+                  ]
+                    .filter((item) => item.value !== undefined && item.value !== null && item.value !== '-')
+                    .map((item) => (
+                      <Grid item xs={12} sm={6} key={item.label}>
+                        <Typography variant="body2" color="text.secondary">
+                          {item.label}
+                        </Typography>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {typeof item.value === 'number' ? formatNumber(item.value) : item.value}
+                        </Typography>
+                      </Grid>
+                    ))}
+                </Grid>
+                {collectionDetails.payload_schema && (
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom>
+                      페이로드 스키마 키
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {Object.keys(collectionDetails.payload_schema).map((key) => (
+                        <Chip key={key} label={key} size="small" variant="outlined" />
+                      ))}
+                    </Stack>
+                  </Box>
                 )}
-              </Box>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMore />}>
-              <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <NetworkCheck />
-                연결 정보
+                {collectionDetails.configuration && (
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom>
+                      컬렉션 설정 (JSON)
+                    </Typography>
+                    <Box
+                      sx={{
+                        bgcolor: 'grey.900',
+                        color: 'grey.100',
+                        p: 2,
+                        borderRadius: 1,
+                        fontFamily: 'monospace',
+                        fontSize: '0.8rem',
+                        maxHeight: 240,
+                        overflow: 'auto',
+                      }}
+                    >
+                      <pre style={{ margin: 0 }}>
+                        {JSON.stringify(collectionDetails.configuration, null, 2)}
+                      </pre>
+                    </Box>
+                  </Box>
+                )}
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                상세 정보를 확인하려면 컬렉션을 선택하세요.
               </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon><Dns /></ListItemIcon>
-                  <ListItemText
-                    primary="API Base URL"
-                    secondary="https://simple-rag-production-bb72.up.railway.app"
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {statusData?.health_checks && statusData.health_checks.length > 0 && (
+        <Paper sx={{ mt: 3, p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+          <Typography variant="h6" gutterBottom>
+            헬스 체크 결과
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <List dense>
+            {statusData.health_checks.map((check: QdrantHealthCheck) => (
+              <ListItem key={check.name} divider>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 160 }}>
+                  <Chip
+                    label={toDisplayStatus(check.status)}
+                    color={getStatusChipColor(check.status)}
+                    size="small"
                   />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><DataUsage /></ListItemIcon>
-                  <ListItemText
-                    primary="WebSocket URL"
-                    secondary="wss://simple-rag-production-bb72.up.railway.app"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><CloudCircle /></ListItemIcon>
-                  <ListItemText
-                    primary="환경"
-                    secondary={import.meta.env.DEV ? 'Development' : 'Production'}
-                  />
-                </ListItem>
-              </List>
-            </AccordionDetails>
-          </Accordion>
+                  <Typography variant="body2">{check.name}</Typography>
+                </Stack>
+                <ListItemText
+                  primary={check.message ?? '정상'}
+                  secondary={
+                    check.latency_ms !== undefined
+                      ? `응답 지연: ${formatNumber(check.latency_ms)} ms`
+                      : undefined
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
         </Paper>
-      </Collapse>
+      )}
     </Box>
   );
 };
+
+export default StatsTab;
