@@ -43,7 +43,7 @@ import {
   BarChart,
   Close,
 } from '@mui/icons-material';
-import { ChatMessage, ToastMessage, Source as SourceType, SessionInfo } from '../types';
+import { ChatMessage, ToastMessage, Source as SourceType, SessionInfo, ChatHistoryEntry } from '../types';
 import { chatAPI } from '../services/api';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
@@ -241,6 +241,48 @@ const formatModelConfigValue = (value: unknown): string => {
   return String(value);
 };
 
+const pickFirstString = (...values: Array<string | null | undefined>): string | undefined =>
+  values.find((value) => typeof value === 'string' && value.trim().length > 0);
+
+const mapHistoryEntryToChatMessage = (entry: ChatHistoryEntry, index: number): ChatMessage => {
+  const role: 'user' | 'assistant' =
+    entry.role === 'assistant' || entry.role === 'user'
+      ? entry.role
+      : index % 2 === 0
+        ? 'user'
+        : 'assistant';
+
+  const roleSpecificCandidates = role === 'assistant'
+    ? [
+        entry.answer,
+        entry.response,
+        entry.assistant_message,
+        entry.content,
+        entry.message,
+      ]
+    : [
+        entry.message,
+        entry.question,
+        entry.prompt,
+        entry.user_message,
+        entry.content,
+      ];
+
+  const content = pickFirstString(...roleSpecificCandidates, entry.response, entry.answer) || '';
+  const timestamp = pickFirstString(entry.timestamp, entry.created_at, entry.updated_at) || new Date().toISOString();
+  const idSource = entry.id ?? entry.timestamp ?? `${role}-${index}`;
+  const id = typeof idSource === 'string' ? idSource : idSource.toString();
+  const sources = Array.isArray(entry.sources) && entry.sources.length > 0 ? entry.sources : undefined;
+
+  return {
+    id,
+    role,
+    content,
+    timestamp,
+    sources,
+  };
+};
+
 interface ChatTabProps {
   showToast: (message: Omit<ToastMessage, 'id'>) => void;
 }
@@ -334,13 +376,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
             synchronizeSessionId(historySessionId, '기록 로드 시 불일치');
           }
           
-          setMessages(response.data.messages.map((msg, index) => ({
-            id: index.toString(),
-            role: index % 2 === 0 ? 'user' : 'assistant',
-            content: msg.response || msg.answer,
-            timestamp: new Date().toISOString(),
-            sources: msg.sources,
-          })));
+          const historyMessages = Array.isArray(response.data.messages)
+            ? response.data.messages.map((msg, index) => mapHistoryEntryToChatMessage(msg, index))
+            : [];
+
+          setMessages(historyMessages);
         } catch (historyError) {
           console.warn('채팅 기록을 불러올 수 없습니다:', historyError);
           // 기록을 불러올 수 없으면 세션 유효성 검증
@@ -816,7 +856,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                     )}
                     
                     {/* 디버그 정보 카드 - 접기/펼치기 기능 */}
-                    {process.env.NODE_ENV === 'development' && sessionInfo && (
+                    {import.meta.env.DEV && sessionInfo && (
                       <Card variant="outlined" sx={{ mb: 2 }}>
                         <CardContent sx={{ pb: '16px !important' }}>
                           <Box 
@@ -850,14 +890,17 @@ export const ChatTab: React.FC<ChatTabProps> = ({ showToast }) => {
                             }}>
                               <Typography variant="caption" component="pre" sx={{ fontSize: 'inherit' }}>
                                 {JSON.stringify({
-                                  sessionId: sessionInfo.sessionId,
+                                  sessionId: sessionInfo.session_id,
+                                  messageCount: sessionInfo.messageCount,
                                   tokensUsed: sessionInfo.tokensUsed,
                                   processingTime: sessionInfo.processingTime,
-                                  messageCount: sessionInfo.messageCount,
-                                  provider: sessionInfo.provider,
-                                  model: sessionInfo.model,
-                                  generationTime: sessionInfo.generationTime,
-                                  parameters: sessionInfo.parameters
+                                  timestamp: sessionInfo.timestamp,
+                                  modelInfo: sessionInfo.modelInfo ? {
+                                    provider: sessionInfo.modelInfo.provider,
+                                    model: sessionInfo.modelInfo.model,
+                                    generationTime: sessionInfo.modelInfo.generation_time,
+                                    parameters: sessionInfo.modelInfo.model_config,
+                                  } : null,
                                 }, null, 2)}
                               </Typography>
                             </Box>

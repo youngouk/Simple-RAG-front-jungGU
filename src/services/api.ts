@@ -6,6 +6,7 @@ import {
   UploadResponse,
   UploadStatus,
   ChatResponse,
+  ChatHistoryEntry,
   Stats,
   SessionInfo,
 } from '../types';
@@ -74,8 +75,8 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // 세션 ID 추가
-    const sessionId = localStorage.getItem('sessionId');
+    // 세션 ID 추가 (chatSessionId 우선, 구버전 호환을 위해 sessionId 폴백)
+    const sessionId = localStorage.getItem('chatSessionId') || localStorage.getItem('sessionId');
     if (sessionId) {
       config.headers['X-Session-Id'] = sessionId;
     }
@@ -93,6 +94,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // 인증 에러 처리
       localStorage.removeItem('sessionId');
+      localStorage.removeItem('chatSessionId');
       window.location.href = '/login';
     }
     
@@ -260,7 +262,7 @@ export const chatAPI = {
 
   // 채팅 기록 조회
   getChatHistory: (sessionId: string) =>
-    api.get<{ messages: ChatResponse[] }>(`/api/chat/history/${sessionId}`),
+    api.get<{ messages: ChatHistoryEntry[] }>(`/api/chat/history/${sessionId}`),
 
   // 새 세션 시작 - 백엔드에서 새로운 채팅 세션 ID 생성
   startNewSession: () =>

@@ -88,6 +88,24 @@ export interface ChatResponse {
   };
 }
 
+export interface ChatHistoryEntry {
+  id?: string | number;
+  role?: 'user' | 'assistant';
+  message?: string;
+  question?: string;
+  prompt?: string;
+  response?: string;
+  answer?: string;
+  content?: string;
+  user_message?: string;
+  assistant_message?: string;
+  session_id?: string;
+  timestamp?: string;
+  created_at?: string;
+  updated_at?: string;
+  sources?: Source[];
+}
+
 // 세션 정보 API 응답 타입
 export interface SessionInfo {
   session_id: string;
